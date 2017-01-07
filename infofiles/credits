@@ -17,7 +17,9 @@
 
 ~CW_~CY_~CG_~FG________________________________________________________________________~CG_~CY_~CW_
 
-                         ~ Credits For Moenuts v1.72 ~
+                         ~ Credits For Moenuts v1.73 ~
+                         (C)1997-2004 Michael Irving.
+                       Revision Date: August 20th, 2004
 
 ~CMSpecial Thanks To The Following People:
 ~FM---------------------------------------
@@ -25,20 +27,30 @@
 ~FYSquirt  ~FM- ~FTFor adding the Seemless reboot and making the code ANSI compliant.
 ~CGA~FGrn~CGY    ~FM- ~FTFor Supplying The Original Seemless Reboot Code and Help.
 ~FGAndy    ~FM- ~FTFor adding Samesite and Greet for me when I was just starting out.
-~FGNerf    ~FM- ~FTFor adding Poker and Tic Tac Toe for me. (Later bugfixed updated)
+~FGNerf    ~FM- ~FTFor originally adding Poker and Tic Tac Toe for me.
 ~RSCurmitt ~FM- ~FTFor helping out with various issues here and there.
 ~CKadd~RCI~CKct  ~FM- ~FTFor Random Colour Codes and String Subtitution Code and other help.
+~FGMagius  ~FM- ~FT For writing the objects code Moenuts' Objects is based on.
+~CBKa~CYtr~CBin~CYa ~FM- for helping spell check and note bugs to be fixed and just
+        ~FM- just generally motivating me to do more work on moenuts ;)
+        ~FM- I love that girl :)
+~CGPa~CWD~CYdY ~FM- Helping out with various issues throught development, i.e.
+           ~FM ~FTThe Affections List Issue.
 ~CT>~FBAnd~CT->  ~FM- ~FTEveryone Else Who Gave Ideas, Critisism and Comments. 
 
-Moenuts originally started out as a small project based on Reddawg's modified NUTS 3.3.3
-for use on my own talker.  I decided to release Moenuts to the public because there was
-some interest shown in it.  It is still around today, but development and release is slow
-because of time restraints and such.  I'd like to thank everyone for their hard work and
-contrubutions to this project, the Dark Fantastic Network for hosting our webpage and
-talkers.  Moenuts has been tested under GCC 3.3.2 and the 2.6.3 Linux Kernel under the
-slackware Distrobution.  It has been known to work under many other Unix style OS's,
-and may even be compiled under Windows with little or no modifications using Cygwin or
-other compiler packages.  For more information, feel free to email support@moenuts.com
+Moenuts originally started out as a small project based on Reddawg's
+modified NUTS 3.3.3 for use on my own talker.  I decided to release
+Moenuts to the public because there was some interest shown in it.  It is
+still around today, but development and release is slow because of time
+restraints and such.  I'd like to thank everyone for their hard work and
+contrubutions to this project, the Dark Fantastic Network for hosting our
+webpage and talkers.  Moenuts has been tested under GCC 3.3.2 and the
+2.6.7-rc3 Linux Kernel under the slackware Distrobution.  It has been
+known to work under many other Unix style OS's including FreeBSD with a
+few minor compile warnings (Thanks to DerrecK for the use of his FreeBSD
+box for testing, and may even be compiled under Windows with little or no
+modifications using Cygwin or other compiler packages.  For more
+information, feel free to email support@moenuts.com
 
 ~CW_~CY_~CG_~FG________________________________________________________________________~CG_~CY_~CW_
 

@@ -1,0 +1,57 @@
+
+                              ~CY* ~CWcolour ~CY*
+
+~CYCommand: ~CWcolour
+~CYUsage  : ~CWcolour
+
+~CWThis command toggles colour on and off. The colour itself is
+~CWcontrolled by embedded tags in text strings which all begin 
+~CWwith a '~', eg ^~FG.
+
+~CWThey are the following...
+
+~CWControl tags...
+
+^~RS : Rest terminal to default state
+^~RV : ~RVReverse video               ~RS
+^~OL : ~OLBold
+^~LI : ~LIBlink/flash text.~RS This only works on some terminals, others may
+      simply display it as bold.
+^~UL : ~ULUnderline text.~RS As with blink this doesn't work on all terminals,
+      some just display it as bold.
+
+~CWForeground colour tags...
+
+^~FK : Foreground black
+^~FM : ~FMMagenta/purple
+^~FR : ~FRRed
+^~FY : ~FYYellow/orange
+^~FG : ~FGGreen
+^~FB : ~FBBlue
+^~FT : ~FTTurquoise/bright blue
+^~FW : ~FWWhite
+^~CK : ~CKForeground black
+^~CM : ~CMMagenta/purple
+^~CR : ~CRRed
+^~CY : ~CYYellow/orange
+^~CG : ~CGGreen
+^~CB : ~CBBlue
+^~CT : ~CTTurquoise/bright blue
+^~CW : ~CWWhite
+
+Background colour tags...
+
+^~BK : ~BKBackground black      ~RS
+^~BM : ~BMMagenta/purple        ~RS
+^~BR : ~BRRed                   ~RS
+^~BY : ~BYYellow/orange         ~RS
+^~BG : ~BGGreen                 ~RS
+^~BB : ~BBBlue                  ~RS
+^~BT : ~BTTurquoise/bright blue ~RS
+^~BW : ~CK~BWWhite                 ~RS
+
+So this: "^~FG^~BBhello world" would produce ~FG~BBhello world~RS
+
+To display the colour tags as themselves without them producing a colour
+prepend the ~ with a ^ , eg ^^~FG
+

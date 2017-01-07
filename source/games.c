@@ -4,11 +4,13 @@
   #include "prototypes.h"
 #undef _GAMES_SOURCE
 
-#define GAMELIBID "Moesoft Game Library v1.23 (C)1997-2002 RaMSoft"
-#define TICTACTOEPOT 100
-
-#define MAX_POKER_BET 1000000
-#define MAX_POKER_RAISE 1000000
+#define GAMELIBID "Moesoft Games Library v1.30 (C)1997-2004 Moe and Squirt"
+#define TICTACTOEPOT 200
+#define TICTACTOEDRAWPOT 100
+#define C4WINPOT 200
+#define C4DRAWPOT 100
+#define MAX_POKER_BET 10000
+#define MAX_POKER_RAISE 10000
 
 /*************** Poker, derived from Robb Thomas' version********************/
 /* Get po_game struct pointer from name                                     */
@@ -259,13 +261,12 @@ sprintf(text, " ");
 void start_poker(UR_OBJECT user)
 {
 struct po_game *game;
-int hist_index;
 
-if ((hist_index = get_player_hist_index(user)) == -1) {
-        write_user(user,"~CRYou need some money first!\n");
+if ((user->bank_balance<100)) {
+        write_user(user,"~CRYou need atleast $100 to join the game.  Get some money first!\n");
 	return;
         }
-if (word_count < 2) {
+if (word_count<2) {
         write_user(user,"~CRYou need to name the game.\n");
 	return;
         }
@@ -302,7 +303,6 @@ if (user->pop == NULL) {
 		return;
                 }
         user->pop->user = user;
-        user->pop->hist = po_hist[hist_index];
         game->players = user->pop;
         game->curr_player = user->pop;
         game->dealer = user->pop;
@@ -324,15 +324,17 @@ if (user->pop == NULL) {
 void join_poker(UR_OBJECT user)
 {
 struct po_game *game;
-int hist_index;
-if ((hist_index = get_player_hist_index(user)) == -1) {
-        write_user(user, "~CTYou need money!  ~FMAsk a wiz!\n");
+
+if (user->bank_balance<100) {
+        write_user(user, "~CTYou need atleast $100 to play!  ~FMAsk a wiz!\n");
 	return;
         }
-/*if ((user->pop != NULL)&&(user->cwp != NULL)) {
+/*
+if ((user->pop != NULL)&&(user->cwp != NULL)) {
         write_user(user, "~CRYou are already in a game.\n");
 	return;
-        }*/
+        }
+*/
 if ((user->pop != NULL)&&(user->pop != NULL)) {
         write_user(user, "~CRYou are already in a game.\n");
 	return;
@@ -352,7 +354,6 @@ if ((user->pop=create_po_player(game))==NULL) {
         }
    else {
 	user->pop->user = user;
-        user->pop->hist = po_hist[hist_index];
         sprintf(text, "~CW-> ~FGYou join the game~FG %s.\n", game->name);
 	write_user(user, text);
         sprintf(text, "~OL<~FG %s~FW joins the game~FG %s~FW >\n", user->name, game->name);
@@ -389,326 +390,6 @@ if (!count) sprintf(text,"\n~CRThere are no games currently being played!\n\n");
 else if (count==1) sprintf(text,"\n~OLTotal of~FM %d~FW game being played.\n\n", count);
 else sprintf(text,"\n~OLTotal of~FM %d~FW games being played.\n\n", count);
 write_user(user, text);
-}
-
-/*** add_player_hist ***/
-int add_player_hist(UR_OBJECT u,int total,int given)
-{
-struct po_player_hist *player_hist;
-
-if ((player_hist=(struct po_player_hist *)malloc(sizeof(struct po_player_hist)))==NULL) {
-        write_syslog("ERROR: Memory allocation failure in add_player_hist().\n",0);
-	return 0;
-        }
-
-/* create a new po player _history */
-strcpy(player_hist->name, u->name);
-player_hist->total = total;
-player_hist->given = given;
-
-/* add it to the list */
-po_hist[max_hist] = player_hist;
-max_hist++;
-sort_hist();
-return 1;
-}
-
-/*** get index for a player _hist */
-int get_player_hist_index(UR_OBJECT u)
-{
-int i;
-for (i = 0; i < max_hist; i++) {
-        if (strcmp(po_hist[i]->name, u->name) == 0) {
-        return i;
-	}
-}
-return -1;
-}
-
-/*** po player history compare ***/
-int player_hist_cmp(struct po_player_hist **a,struct po_player_hist **b)
-{
-int a_winnings;
-int b_winnings;
-
-a_winnings = (*a)->total;
-b_winnings = (*b)->total;
-if (a_winnings < b_winnings) { return 1; }
-else if (a_winnings > b_winnings) { return -1; }
-return 0;
-} 									 
-
-/*** sort the po _history ***/
-void sort_hist(void)
-{
-if (max_hist > 0) {
-        qsort(po_hist, max_hist, sizeof(po_hist[0]),
-                  (int (*) (const void *, const void *))player_hist_cmp);
-                  }
-}
-
-/*** show po player history ***/
-void rank_po(UR_OBJECT user)
-{
-int i;
-int many = 0;
-
-if (word_count == 2) {
-	many = atoi(word[1]);
-        }
-        if (many < 5) many = 5;
-        if (many > max_hist) many = max_hist;
-	write_user(user,"~FG=-=-=-~CB DeSade Casino ~CGPoker Ranking!~FG -=-=-=\n");
-	write_user(user,"~FM~OLRank: Name            : Total             \n");
-	write_user(user,"~FG-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-\n");
-        for (i = 0; i < many; i++) {
-        sprintf(text,"  %-2d: %-15.15s : $%-17d\n",i+1,po_hist[i]->name,po_hist[i]->total);
-	write_user(user, text);
-        }
-for (i = 0; i < max_hist; i++) {
-        if (!strcmp(user->name, po_hist[i]->name)) {
-        if (i == many) {
-        sprintf(text,"  %-2d: %-15.15s : $%-17d\n",i+1,po_hist[i]->name,po_hist[i]->total);
-		write_user(user, text);
-		break;
-                }
-        else if (i > many) {
-                sprintf(text, "           :\n  %-2d: %-15.15s : $%-17d\n",i+1,po_hist[i]->name,po_hist[i]->total);
-		write_user(user, text);
-		break;
-                }
-           else {
-		break;
-                }
-	}
-  }	
-write_user(user,"~FG=-=-=-~CB ReSade Casino ~CGPoker Ranking!~FG -=-=-=\n");
-}
-
-/*** Give chips to all the little people ***/
-void chips_po(UR_OBJECT user)
-{
-int amount=0;
-int hist_index=0;
-int type=0;
-int balance=0;
-  
-if (word_count<3) {
-        write_user(user,"Usage: chips [buy]/[sell] <amount>\n");
-	return;
-        }
-balance=user->bank_balance;
-amount = atoi(word[2]);
-if (amount%5>0) { 
-        write_user(user,"~CRWe only cary $5 and $10 chips here!\n");
-	return;
-	}
-if (amount<10) {
-        write_user(user,"~CRThe ammount must be more than ~FT$10.00~FR!\n");
-	return;
-	}
-if (!strcasecmp(word[1],"buy")) type=1;
-if (!strcasecmp(word[1],"sell")) type=2;
-if (!type) {
-        write_user(user,"~CRYou must ~FB'~FMbuy~FB' ~FRor ~FB'~FMsell~FB' ~FRchips!\n");
-	return;
-	}
-if (!balance && type==1) {
-        write_user(user,"~CRYou do not have any money in the bank to buy chips!\n");
-	return;
-	}
-if (type==1 && (balance<amount)) {
-        write_user(user,"~CRYou don't have that kind of money in the bank!\n");
-	return;
-	}
-if (balance<30 && type==1) {
-        sprintf(text,"~CGYour ~FY%s~FG Bank Balance = ~FT$%d.00\n",TALKERNAME,balance);
-	write_user(user,text);
-        write_user(user,"~CRYou *must* have atleast $30 to buy chips.\n");
-        write_user(user,"~CMYou can either bug a wiz, ask a user for a loan, or try your luck\n~CMAt the craps table!\n");
-	return;
-	}
-if (amount<30 && type==1) {
-        write_user(user,"~CRYou cannot buy any less than $30 in chips!\n");
-	return;
-	}
-/* add to player history */
-if ((hist_index=get_player_hist_index(user))==-1) {
-	/* not in _hist */
-	if (type==2) {
-		amount=0;
-                write_user(user,"~CRYou have no poker chips to sell!\n");
-		return;
-		}
-	if (add_player_hist(user,amount,amount)) hist_index=get_player_hist_index(user);
-	else return;
-	}
-else {
-	/* already in _hist */
-	if (type==2) {
-		if (amount>po_hist[hist_index]->total) {
-                        write_user(user,"~CRYou cannot sell more chips than you have! ~FM*Nice try* ;)\n");
-			return;
-			}
-		else {
-	        	po_hist[hist_index]->total -= amount;
-        		po_hist[hist_index]->given -= amount;
-			}	
-		}
-	else {
-        	po_hist[hist_index]->total += amount;
-        	po_hist[hist_index]->given += amount;
-		}
-        sort_hist();
-        }
-if (type==1) withdrawlbank(user,amount,0);
-else depositbank(user,amount,0);
-balance=user->bank_balance;
-sprintf(text,"~CGYou now have ~FT$%d.00 ~FGin poker chips and ~FT$%d.00 ~FGin the bank.\n",po_hist[hist_index]->total,balance);
-write_user(user,text);
-}
-
-/*** Give chips to all the little people ***/
-void give_chips_po(UR_OBJECT user)
-{
-UR_OBJECT u;
-char text2[80];
-int amount;
-int hist_index;
-  
-if (word_count<2) {
-        write_user(user,"Usage: chips <user> <amount>\n");
-	return;
-        }
-amount = atoi(word[2]);
-if (amount > 500) {
-        write_user(user,"An amount lower then 500 please!\n");
-        return;
-        }
-if (amount < 50) {
-	write_user(user,"An amount more than 50 please!\n");
-	return;
-	}
-/* User currently logged in */
-if ((u=get_user(word[1]))) {
-	/* add to player history */
-        if ((hist_index=get_player_hist_index(u))==-1) {
-        /* not in _hist */
-        if (add_player_hist(u,amount,amount))
-                hist_index=get_player_hist_index(u);
-            else
-		return;
-                }
-           else {
-	/*sprintf(text, "hist_index = %d\n", hist_index);
-  	write_user(user, text);*/
-	/* already in _hist */
-        po_hist[hist_index]->total += amount;
-        po_hist[hist_index]->given += amount;
-        sort_hist();
-        }
-	sprintf(text,"~FG~OL%s~FW has~FG $%d~FW poker chips.\n",u->name,po_hist[hist_index]->total);
-	write_user(user,text);
-        sprintf(text,"~FG~OL%s~FW has given you~FG $%s~FW worth of poker chips.\n",user->name,word[2]);
-	write_user(u,text);
-	sprintf(text,"%s gave %s $%s worth of poker chips.\n",user->name,u->name,word[2]);
-	write_syslog(text,1);
-	return;
-        }
-	/* User not logged in */
-if ((u=create_user())==NULL) {
-	sprintf(text,"~FR%s: unable to create temporary user object.\n",syserror);
-	write_user(user,text);
-        write_syslog("ERROR: Unable to create temporary user object in chips_po().\n",0);
-	return;
-        }
-strcpy(u->name,word[1]);
-if (!load_user_details(u)) {
-	write_user(user,nosuchuser);
-	destruct_user(u);
-	destructed=0;
-	return;
-        }
-	/* add to player history */
-        if ((hist_index = get_player_hist_index(u)) == -1) {
-	/* not in _hist */
-        if (add_player_hist(u,amount,amount))
-        hist_index = get_player_hist_index(u);
-   else {
-        destruct_user(u);
-        destructed=0;
-        return;
-        }
-        } else {
-	/* already in _hist */
-        po_hist[hist_index]->total += amount;
-        po_hist[hist_index]->given += amount;
-        sort_hist();
-        }
-sprintf(text,"~FG~OL%s~FW has~FG $%d~FW poker chips.\n",word[1],po_hist[hist_index]->total);
-write_user(user,text);
-u->socket=-2;
-strcpy(u->site,u->last_site);
-save_user_details(u,0);
-sprintf(text2,"~OLYou have been given~FG $%s~FW worth of poker chips.~RS\n",word[2]);
-send_mail(user,word[1],text2);
-sprintf(text,"%s gave %s $%s poker chips.\n",user->name,u->name,word[2]);
-write_syslog(text,1);
-destruct_user(u);
-destructed=0;
-}
-
-/*** save po history to disk ***/
-int save_hist(void)
-{
-FILE *fp;
-char filename[80];
-int i;
-sprintf(filename,"%s/%s",MISCFILES,PO_HIST_FILE);
-if (!(fp=fopen(filename,"w"))) {
-        sprintf(text,"Save_hist(): Failed to save poker history.\n");
-	write_syslog(text,1);
-	return 0;
-        }
-fprintf(fp,"%d\n",max_hist);
-for (i = 0; i < max_hist; i++) {
-        fprintf(fp,"%s\n",po_hist[i]->name);
-        fprintf(fp,"%d %d\n",po_hist[i]->total,po_hist[i]->given);
-        }
-fclose(fp);
-return 1;
-}
-
-/*** load poker history from disk ***/
-int load_hist(void)
-{
-FILE *fp;
-char filename[80];
-int i;
-struct po_player_hist *player_hist;
-  
-sprintf(filename,"%s/%s",MISCFILES,PO_HIST_FILE);
-if (!(fp=fopen(filename,"r"))) {
-        printf(">> Load_hist: Failed to load poker history.\n");
-	return 0;
-        }
-fscanf(fp,"%d",&max_hist); 
-printf(">> max_hist = %d\n", max_hist);
-for (i = 0; i < max_hist; i++) {
-        if ((player_hist=(struct po_player_hist *)malloc(sizeof(struct po_player_hist)))==NULL) {
-        	printf(">> ERROR: Memory allocation failure in load_hist().\n");
-        	return 0;
-		}
-	fscanf(fp,"%s",player_hist->name);
-	fscanf(fp,"%d %d",&(player_hist->total),&(player_hist->given));
-	printf(">> User Name: %-20s  Total: $%d\n",player_hist->name,player_hist->total);
-	/* add it to the list */
-	po_hist[i]=player_hist;
-	}
-fclose(fp);
-sort_hist();
-printf(">> Loaded poker history.\n");
-return 1;
 }
 
 /*** Deal cards to all players ***/
@@ -750,7 +431,7 @@ shuffle_cards(game->deck);
 /* Reset players */
 for (tmp_player = game->first_player; tmp_player != NULL;
         tmp_player = tmp_player->next) {
-        if (tmp_player->hist->total >= 5) {
+        if (tmp_player->user->bank_balance >= 5) {
         	tmp_player->hand[0] = -1;
         	tmp_player->touched = 0;
         	tmp_player->putin = 5;
@@ -762,7 +443,6 @@ for (tmp_player = game->first_player; tmp_player != NULL;
                 write_user(tmp_player->user,"~CW-> ~FRYou need more poker chips!\n");
 		}
 	}
-sort_hist();
 if (game->in_players<2) {
         write_room(user->room,"~CTNot enough people have chips to ante.  You need at least two.\n");
 	record(user->room,"~FRNot enough people have chips to ante.  You need at least two.\n"); 
@@ -786,7 +466,7 @@ for (i = 0; i < 5; i++) {
 	  	game->curr_player->hand[i] = game->deck[game->top_card];
 	  	game->top_card++;
 	if (i == 4) {
-     		game->curr_player->hist->total -= 5;
+     		game->curr_player->user->bank_balance -= 5;
 		game->pot += 5;
 		game->curr_player->putin = 0;	
 		print_hand(game->curr_player->user,game->curr_player->hand);
@@ -895,7 +575,7 @@ if ((player_bet > game->bet) && (game->bet != 0)) {
 	}
 	game->num_raises++;
         }
-if (user->pop->hist->total < player_bet) {
+if (user->pop->user->bank_balance < player_bet) {
         sprintf(text,"~CW-> ~FRYou don't have enough chips to make that bet.\n");
 	write_user(user, text);
 	return;
@@ -933,10 +613,8 @@ else if (game->bet == 0) {
         }
 game->bet = player_bet;
 game->pot += (player_bet - user->pop->putin);
-user->pop->hist->total -= (player_bet - user->pop->putin);
+user->pop->user->bank_balance -= (player_bet - user->pop->putin);
 user->pop->putin = player_bet;
-sort_hist();
-
 sprintf(text, "~CW-> ~FTThe pot is now~FG $%d.\n",game->pot);
 write_user(user, text);
 
@@ -1004,7 +682,7 @@ if (game->num_raises > 5) {
         }
 player_raise += game->bet;
 game->num_raises++;
-if (user->pop->hist->total < player_raise) {
+if (user->pop->user->bank_balance < player_raise) {
         write_user(user,"~CRYou don't have enough chips to make that raise.\n");
 	return;
         }
@@ -1032,7 +710,7 @@ if (game->curr_player != user->pop) {
 	return;
         }
 player_bet = game->bet;
-if (user->pop->hist->total < player_bet) {
+if (user->pop->user->bank_balance < player_bet) {
         write_user(user,"~CW-> ~FRYou don't have enough chips to see that bet.\n");
 	return;
         }
@@ -1125,8 +803,8 @@ if (game->in_players == 1) {
 	/* The in person wins */
 	next_in_player(game);
 	/* add to players total_bux */
-     game->curr_player->hist->total += game->pot;
-        sort_hist();
+        game->curr_player->user->bank_balance += game->pot;
+        game->curr_player->user->poker_wins += game->pot;	
         sprintf(text,"~CW-> ~FGYou win~FG $%d~FW!!!\n", game->pot);
 	write_user(game->curr_player->user, text);
         sprintf(text,"~CW-> ~FG%s~FT wins~FG $%d~FT!!!\n", 
@@ -1599,14 +1277,14 @@ for (i = 0; i < num_winners; i++) {
 if (winners[i] == game->curr_player) {
         loot += game->pot%(num_winners*5);
 	}
-        winners[i]->hist->total += loot;
+        winners[i]->user->bank_balance += loot;
+        winners[i]->user->poker_wins += loot;
         sprintf(text,"~CW-> ~FTYou win~FG $%d~FW!!!\n", loot);
 	write_user(winners[i]->user, text);
         sprintf(text,"~CW-> ~FG%s~FT wins~FG $%d~FT!!!\n",winners[i]->user->name,loot);
 	write_room_except(game->room, text, winners[i]->user);
 	record(game->room, text);
         }
-sort_hist();
 game->pot = 0;
 game->bet = 0;
 game->state = 0;  /* reset and deal cards */
@@ -1699,7 +1377,7 @@ for (player = game->first_player; player != NULL; player = player->next) {
                 strcat(text,"~FG~OLplaying~RS : ");
                 }
 	}
-        sprintf(text2, "$%-6d ",player->hist->total);
+        sprintf(text2, "$%-6d ",player->user->bank_balance);
 	strcat(text, text2);
 	if (game->curr_player == player) {
         strcat(text, turn_text);
@@ -1720,18 +1398,6 @@ if ((game->state == 1)||(game->state == 3)) {
         write_user(user, text);
         }
 
-void check_hist(UR_OBJECT user)
-{
-static int done=0;
-
-if (mesg_check_hour==thour && mesg_check_min==tmin) { if (done) return; }
-else { done=0; return; }
-done=1;
-save_hist();
-if (user) write_user(user,"~CGSaved poker rankings.\n");
-}
-
-/************************************************************************/
 /* My random function **/
 int myRand(int max)
 {
@@ -1767,18 +1433,18 @@ if (word_count<2) {
 	write_user(user,"           tictac reset    =  Reset Tic Tac Toe\n");
 	write_user(user,"           tictac show     =  Redisplay Board\n");
 	write_user(user,"           tictac status   =  Your Tic Tac Toe Status\n");
-	write_user(user,"           tictac say      =  Speak To Your Opponent.\n");
+	write_user(user,"           tictac say      =  Speak To Your Opponent.\n\n");
 	return;
 	}
 if (strstr(word[1],"reset")) {
-        write_user(user,"~CGResetting The Current Tic Tac Toe Game...\n");
+        write_user(user,"~CW-> ~CMTic Tac Toe~CT: ~CGResetting The Current Tic Tac Toe Game...\n\n");
 	reset_tictac(user);
 	if (user->opponent!=NULL) reset_tictac(user->opponent);
 	return;
 	}
 if (strstr(word[1],"show")) {
 	if (!user->opponent) {
-		write_user(user,"~FRYou are not currently playing Tic Tac Toe!\n");
+		write_user(user,"~CW-> ~CMTic Tac Toe~CT: ~FRYou are not currently playing Tic Tac Toe!\n\n");
 		return;
 		}
 	print_tic(user);
@@ -1792,65 +1458,68 @@ if (strstr(word[1],"stat")) {
 	}
 if (strstr(word[1],"say")) {
 	if (!user->opponent) {
-                write_user(user,"~CRYou have to be playing a game of Tic Tac Toe!\n");
+                write_user(user,"~CW-> ~CMTic Tac Toe~CT: ~CRYou have to be playing a game of Tic Tac Toe!\n\n");
 		return;
 		}
 	inpstr=remove_first(inpstr);
-	if (!inpstr[0]) { write_user(user,"Say what to your opponent?\n"); return; }
-        sprintf(text,"~CW-> ~FGYou say to ~FT%s~RS~CW: ~FB\"~RS%s~CB\"\n",user->opponent->recap,inpstr);
+	if (!inpstr[0]) { write_user(user,"~CW-> ~CMTic Tac Toe~CT: Say what to your opponent?\n\n"); return; }
+        sprintf(text,"~CW-> ~CMTic Tac Toe~CT: ~CTYou say to %s~CW: ~RS%s~RS \n\n",user->opponent->recap,inpstr);
 	write_user(user,text);
-        sprintf(text,"~CW-> ~FT%s~RS~CG says to you~FW: ~FB\"~RS%s~CB\"\n",user->opponent->recap,inpstr);
+        sprintf(text,"~CW-> ~CMTic Tac Toe~CT: ~CT%s~CW says to you~FW: ~RS%s~RS \n\n",user->opponent->recap,inpstr);
 	write_user(user->opponent,text);
 	return;
 	}
 if (atoi(word[1])>9) {
-        write_user(user,"~CRThere are only nine spots on the Tic Tac Toe board!\n");
+        write_user(user,"~CW-> ~CMTic Tac Toe~CT: ~CRThere are only nine spots on the Tic Tac Toe board!\n\n");
 	return;
 	}
 if (!isdigit(word[1][0])) {
-        u=get_user(word[1]);  /* Replaced get_opp. (get_opp = EVIL!) */
+        u=get_user(word[1]);
 	if (u==NULL) {
        		write_user(user,notloggedon);
                 return;
       		}
 	if (u==user) {
-                write_user(user,"~CMYou cannot play Tic Tac Toe With yourself!\n");
+                write_user(user,"~CW-> ~CMTic Tac Toe~CT: ~CRYou cannot play Tic Tac Toe with yourself!\n\n");
 		return;
 		}
         reset_tictac(user);
     	user->opponent=u;
     	if (user->opponent->opponent) {
-       		if (user->opponent->opponent!=user) {
-                        write_user(user, "Sorry, that person is already playing Tic Tac Toe.\n");
+       	       if (user->opponent->opponent!=user) {
+                        write_user(user, "~CW-> ~CMTic Tac Toe~CT: ~CRSorry, that person is already playing Tic Tac Toe.\n\n");
            		return;
           		}
                if (user->opponent->level<USER) {
-                    write_user(user,"~CRThat user doesn't have Tic Tac Toe!\n");
+                        write_user(user,"~CW-> ~CMTic Tac Toe~CT: ~CRThat user doesn't have Tic Tac Toe!\n\n");
            		return;
           		}
-               sprintf(temp_s, "~CG%s ~FMagrees to play Tic Tac Toe with you\n",user->name);
-               write_user(user->opponent,temp_s);
-               sprintf(temp_s, "~CMYou agree to a game of Tic Tac Toe with ~FG%s\n",user->opponent->name);
+                sprintf(temp_s,"~CW-> ~CMTic Tac Toe~CT: ~CG%s~CG agrees to play Tic Tac Toe with you~CY.\n\n",user->recap);
+                write_user(user->opponent,temp_s);
+		user->opponent->first=1;
+		user->first=0;
+                sprintf(temp_s,"~CW-> ~CMTic Tac Toe~CT: ~CGYou agree to a game of Tic Tac Toe with %s~CY.\n\n",user->opponent->recap);
        		write_user(user,temp_s);
-               sprintf(temp_s,"~CR%s ~FTstarts playing Tic Tac Toe with ~FR%s\n",user->name,user->opponent->name);
+                sprintf(temp_s,"~CW-> ~CMTic Tac Toe~CT: ~CY%s ~CYstarts playing Tic Tac Toe with %s~CG.\n\n",user->recap,user->opponent->recap);
        		write_room(user->room,temp_s);
-       		print_tic(user); print_tic(user->opponent);
+       		print_tic(user); 
+		print_tic(user->opponent);
        		return;
       		}
     	else {
-               sprintf(temp_s, "~CG%s ~RS~CMwants to play a game of Tic Tac Toe with you.\nYou can use '.tictac %s' to accept the game!\n",user->recap,user->name);
+                sprintf(temp_s, "~CW-> ~CMTic Tac Toe~CT: ~CG%s ~CGwants to play a game of Tic Tac Toe with you~CY.\n~CW-> ~CMTic Tac Toe~CT: ~CYYou can use ~CG'~RS.tictac %s~CG'~CY to accept the game~CG!\n\n",user->recap,user->recap);
 	       	write_user(user->opponent,temp_s);
-               sprintf(temp_s,"~CMYou ask ~FG%s ~FMto play a game of Tic Tac Toe.\n",user->opponent->recap);
+                sprintf(temp_s,"~CW-> ~CMTic Tac Toe~CT: ~CGYou ask %s~CG to play a game of Tic Tac Toe~CY.\n\n",user->opponent->recap);
        		write_user(user,temp_s);
        		return;
       		}
    	}   
 if (!user->opponent) {
-        write_user(user,"~CRYou are not playing Tic Tac Toe with anyone!\n");
+        write_user(user,"~CW-> ~CMTic Tac Toe~CT: ~CRYou are not playing Tic Tac Toe with anyone!\n\n");
     	return;
 	}
 if (user->opponent->opponent!=user) {
-        write_user(user,"~CRThat user has not accepted yet.\n");
+        write_user(user,"~CW-> ~CMTic Tac Toe~CT: ~CRThat user has not accepted yet.\n\n");
     	return;
    	}
 if (!strcmp(user->array,"000000000") && !user->opponent->first) {
@@ -1860,31 +1529,40 @@ move=word[1][0]-'0';
 if (legal_tic(user->array,move,user->first)) {
     	user->array[move-1] = 1;
     	user->opponent->array[move-1] = 2;
-     print_tic(user);
+        print_tic(user);
     	print_tic(user->opponent);
    	}
 else {
-        write_user(user,"~CRThat is an illegal move!\n");
-        write_user(user,"~CMIf this is your first move, try .tictac reset and re-start the game!\n");
-    	return;
-   	}   
+        if (user->first) {
+	        write_user(user,"~CW-> ~CMTic Tac Toe~CT: ~CRThat is an illegal move!\n");
+	        write_user(user,"~CW-> ~CMTic Tac Toe~CT: ~CBIf this is your first move, try ~RS.tictac reset~CB and re-start the game!\n\n");
+	    	return;
+		}
+	else {
+	        write_user(user,"~CW-> ~CMTic Tac Toe~CT: ~CRYou cannot take the first move unless you're the challenger!\n");
+	        write_user(user,"~CW-> ~CMTic Tac Toe~CT: ~CMIf you are the challenger, and still cannot move,\n~CW-> ~CMTic Tac Toe~CT: Try typing ~RS.tictac reset ~CMand re-challenge the other person.\n\n");
+	    	return;
+		}
+   	}
 if (!win_tic(user->array)) return;
 if (win_tic(user->array)==1) {
-        sprintf(temp_s, "~CR%s ~RS~CYhas beaten ~FR%s~RS~CY at Tic Tac Toe and won $%d.\n",user->recap,user->opponent->recap,TICTACTOEPOT);
+        sprintf(temp_s, "~CW-> ~CMTic Tac Toe~CT: ~CG%s ~CGhas beaten ~CG%s~CG at Tic Tac Toe and won ~CY$~CG%d~CY.\n\n",user->recap,user->opponent->recap,TICTACTOEPOT);
         user->twin++;
 	user->bank_balance+=TICTACTOEPOT;
         user->opponent->tlose++;
         }
 else if (win_tic(user->array) == 2) {
-        sprintf(temp_s, "~CR%s ~RS~CYhas beaten~FR %s ~RS~CYat Tic Tac Toe and won $%d.\n",user->opponent->recap, user->recap,TICTACTOEPOT);
+        sprintf(temp_s, "~CW-> ~CMTic Tac Toe~CT: ~CG%s ~CGhas beaten~CG %s ~CGat Tic Tac Toe and won ~CY$~CG%d~CY.\n\n",user->opponent->recap, user->recap,TICTACTOEPOT);
         user->opponent->twin++;
 	user->opponent->bank_balance+=TICTACTOEPOT;
         user->tlose++;
         }
 else {
-        sprintf(temp_s,"~CTIt's a draw between~FR %s ~RS~CT~FTand ~FR%s~RS~CT.\n",user->recap,user->opponent->recap);
-        user->opponent->tdraw++; 
+        sprintf(temp_s,"~CW-> ~CMTic Tac Toe~CT: ~CBIt's a draw between %s~CB and %s~CT,~CB they each win ~CT$~CB%d~CT.\n\n",user->recap,user->opponent->recap,TICTACTOEDRAWPOT);
+        user->opponent->tdraw++;
         user->tdraw++;
+	user->bank_balance+=TICTACTOEDRAWPOT;
+	user->opponent->bank_balance+=TICTACTOEDRAWPOT;
    	}
 write_room(user->room, temp_s);
 strcpy(user->array, "000000000");
@@ -1895,7 +1573,7 @@ user->opponent->opponent=NULL;
 user->opponent=NULL;
 }
 
-    
+
 int legal_tic(char *array,int move,int first)
 {
 int count1=0,count2=0;
@@ -1977,27 +1655,27 @@ if (user->high_ascii) {
      }
 else {
      write_user(user,"\n");
-     write_user(user,"~CB.=============================.~RS\n");
-     write_user(user,"~CB!   ~CM<~CG1~CM>~CB   |   ~CM<~CG2~CM>~CB   |   ~CM<~CG3~CM>~CB   !~RS\n");
-     write_user(user,"~CB!         |         |         !~RS\n");
-     sprintf(temp_s, "~CB!    ~CY%c~CB    |    ~CY%c~CB    |    ~CY%c~CB    !~RS    ~CTYour Opponent Is~CW: ~CY%s ~CM(~CYO~CM)\n",array[0],array[1],array[2],user->opponent->name);
+     write_user(user,"~CB.---------.---------.---------.~RS\n");
+     write_user(user,"~CB|   ~CM<~CG1~CM>~CB   |   ~CM<~CG2~CM>~CB   |   ~CM<~CG3~CM>~CB   |~RS\n");
+     write_user(user,"~CB|         |         |         |~RS\n");
+     sprintf(temp_s, "~CB|    ~CY%c~CB    |    ~CY%c~CB    |    ~CY%c~CB    |~RS    ~CTYour Opponent Is~CW: ~CY%s ~CM(~CYO~CM)\n",array[0],array[1],array[2],user->opponent->name);
      write_user(user,temp_s);
-     sprintf(temp_s, "~CB!         |         |         !~RS    ~CTYour  Wins~CW: ~CG%3d~CT, Loses~CW: ~CG%3d~CT, Draws~CW: ~CG%3d\n",user->twin,user->tlose,user->tdraw);
+     sprintf(temp_s, "~CB|         |         |         |~RS    ~CTYour Wins~CW: ~CG%3d~CT, Loses~CW: ~CG%3d~CT, Draws~CW: ~CG%3d\n",user->twin,user->tlose,user->tdraw);
      write_user(user,temp_s);
-     sprintf(temp_s, "~CB!---------+---------+---------!~RS    ~CTTheir Wins~CW: ~CG%3d~CT, Loses~CW: ~CG%3d~CT, Draws~CW: ~CG%3d\n",user->opponent->twin,user->opponent->tlose,user->opponent->tdraw);
+     sprintf(temp_s, "~CB|---------+---------+---------|~RS    ~CT%-4s Wins~CW: ~CG%3d~CT, Loses~CW: ~CG%3d~CT, Draws~CW: ~CG%3d\n",uchisher[user->opponent->gender],user->opponent->twin,user->opponent->tlose,user->opponent->tdraw);
      write_user(user,temp_s);
-     write_user(user,"~CB!   ~CM<~CG4~CM>~CB   |   ~CM<~CG5~CM>~CB   |   ~CM<~CG6~CM>~CB   !~RS\n");
-     write_user(user,"~CB!         |         |         !~RS\n");
-     sprintf(temp_s, "~CB!    ~CY%c~CB    |    ~CY%c~CB    |    ~CY%c~CB    !~RS\n",array[3],array[4],array[5]);
+     write_user(user,"~CB|   ~CM<~CG4~CM>~CB   |   ~CM<~CG5~CM>~CB   |   ~CM<~CG6~CM>~CB   |~RS\n");
+     write_user(user,"~CB|         |         |         |~RS\n");
+     sprintf(temp_s, "~CB|    ~CY%c~CB    |    ~CY%c~CB    |    ~CY%c~CB    |~RS\n",array[3],array[4],array[5]);
      write_user(user,temp_s);
-     write_user(user,"~CB!         |         |         !~RS\n");
-     write_user(user,"~CB!---------+---------+---------!~RS\n");
-     write_user(user,"~CB!   ~CM<~CG7~CM>~CB   |   ~CM<~CG8~CM>~CB   |   ~CM<~CG9~CM>~CB   |~RS\n");
-     write_user(user,"~CB!         |         |         |~RS\n");
-     sprintf(temp_s, "~CB!    ~CY%c~CB    |    ~CY%c~CB    |    ~CY%c~CB    |~RS\n",array[6],array[7],array[8]);
+     write_user(user,"~CB|         |         |         |~RS\n");
+     write_user(user,"~CB|---------+---------+---------|~RS\n");
+     write_user(user,"~CB|   ~CM<~CG7~CM>~CB   |   ~CM<~CG8~CM>~CB   |   ~CM<~CG9~CM>~CB   |~RS\n");
+     write_user(user,"~CB|         |         |         |~RS\n");
+     sprintf(temp_s, "~CB|    ~CY%c~CB    |    ~CY%c~CB    |    ~CY%c~CB    |~RS\n",array[6],array[7],array[8]);
      write_user(user,temp_s);
-     write_user(user,"~CB!         |         |         |~RS\n");
-     write_user(user,"~CB+=============================+~RS\n");
+     write_user(user,"~CB|         |         |         |~RS\n");
+     write_user(user,"~CB`---------'---------'---------'~RS\n");
      write_user(user,"\n");
      }
 }
@@ -2338,3 +2016,235 @@ return;
 }
 
 /*** END OF SLOTS ***/
+
+/****************************** The Connect 4 game ***************************/
+/* Please note there is a small bug with it...for example if a column is     */
+/* full, it still lets a player go there...haven't really worked on it that  */
+/* much, but I figured if someone is stupid enough to try it then they are   */
+/* a complete idiot!                                                         */
+/*****************************************************************************/
+/* Base code from Chris, AKA, Slugger                                        */
+/* modified to NUTS by Rob, AKA Squirt (squirt@ramtits.ca)                   */
+/* Adapted to Moenuts by Moe (moe@moenuts.com)                               */
+/*****************************************************************************/
+
+void connect_four(UR_OBJECT user)
+{
+	UR_OBJECT u;
+	int x, y, key, dropped, f;
+
+	u=NULL;
+	x = y = key = dropped = f = 0;
+
+	if (word_count<2)
+	{
+		write_user(user,"Usage: .con4 <user> --either lets you offer a challenge to another\n");
+		write_user(user,"                      user or accept the challenge.\n");
+		write_user(user,"Usage: .con4 #      --Lets you pick where you want to drop your piece\n");
+		write_user(user,"Usage: .con4 quit   --Quits your current game.\n");
+		write_user(user,"Usage: .con4 board  --Shows your current game boards status\n");
+		return;
+	}
+	if (!isdigit(word[1][0]))
+	{
+		if (!strcmp(word[1],"board"))
+		{
+			if (!user->c4_opponent)
+			{
+				write_user(user,"~CW-> ~CMConnect Four~CT: ~CRTry playing against someone... That might work ya think?\n");
+				return;
+			}
+			print_board(user);
+			return;
+		}
+		if (!strcmp(word[1],"quit"))
+		{
+			if (user->c4_opponent == NULL)
+			{
+				write_user(user,"~CW-> ~CMConnect Four~CT: ~CRYou wanna quit a game when your not playing??\n");
+				return;
+			}
+			sprintf(text,"~CW-> ~CMConnect Four~CT: ~CM%s~CY calls the Connect Four game quits.\n",user->recap);
+			write_user(user,text);
+			write_user(user->c4_opponent,text);
+			for (y = 1 ; y < 7; y++)
+			{
+				for (x = 1 ; x < 8 ; x++)
+				{
+					user->c4_board[x][y]=0;
+					user->c4_opponent->c4_board[x][y]=0;
+				}
+			}
+			user->c4_moves=0;
+			user->c4_opponent->c4_moves=0;
+			user->c4_opponent->c4_opponent=NULL;
+			user->c4_opponent=NULL;
+			dropped=0;
+			return;
+		}
+		if (!(u=get_user(word[1]))) {
+			write_user(user,notloggedon);
+			return;
+			}
+		if (u==user) {
+			write_user(user,"~CW-> ~CMConnect Four~CT: ~CRYou like playing with yourself?\n");
+			return;
+			}
+		user->c4_opponent=u;
+		if (user->c4_opponent->c4_opponent) {
+			if (user->c4_opponent->c4_opponent!=user) {
+				write_user(user, "~CW-> ~CMConnect Four~CT: ~CRSorry, that person is already playing a game of ~CMConnect Four~CR.\n");
+				user->c4_opponent=NULL;
+				return;
+				}
+		 	sprintf(text, "~CW-> ~CMConnect Four~CT: ~CG%s~CG agrees to play a game of ~CMConnect Four~CG with you.\n",user->recap);
+			write_user(user->c4_opponent, text);
+			user->c4_opponent->c4_turn=1;
+			for (y = 1 ; y < 7; y++)
+			{
+				for (x = 1 ; x < 8 ; x++)
+				{
+					user->c4_board[x][y]=0;
+					user->c4_opponent->c4_board[x][y]=0;
+				}
+			}
+			user->c4_moves=0;
+			user->c4_opponent->c4_moves=0;
+			dropped=0;
+			sprintf(text, "~CW-> ~CMConnect Four~CT: ~CGYou agree to a game of ~CMConnect Four~CG with %s~CG.\n",user->c4_opponent->recap);
+			write_user(user,text);
+			print_board(user);
+                print_board(user->c4_opponent);
+                write_user(user->c4_opponent,"~CW-> ~CMConnect Four~CT: ~CGIt is now your turn!\n");
+                sprintf(text,"~CW-> ~CMConnect Four~CT: ~CBIt is now %s~CB's turn~CT.\n",user->c4_opponent->recap);
+                write_user(user,text);
+                return;
+                }
+           else {
+                sprintf(text, "~CW-> ~CMConnect Four~CT: ~CG%s~CG wants to play a game of ~CMConnect Four~CG with you~CY.\n",user->recap);
+                write_user(user->c4_opponent,text);
+                sprintf(text,"~CW-> ~CMConnect Four~CT: ~CGYou ask %s~CG to play a game of ~CYConnect Four ~CGwith you~CY.\n",user->c4_opponent->recap);
+                write_user(user,text);
+                return;
+                }
+        }
+if (!user->c4_opponent) {
+        write_user(user,"~CW-> ~CMConnect Four~CT: ~CRYou can't really move if your not playing with anyone you know!\n");
+        return;
+        }
+if (user->c4_opponent->c4_opponent!=user) {
+        write_user(user,"~CW-> ~CMConnect Four~CT: ~CRWait till they accept first, eh?\n");
+        return;
+        }
+if (!isanumber(word[1])) {
+	write_user(user,"~CW-> ~CMConnect Four~CT: ~CRYou must move 1 to 9 only!\n");
+	return;
+	}
+if (atoi(word[1])<1 || atoi(word[1])>9) {
+	write_user(user,"~CW-> ~CMConnect Four~CT: ~CRYou must move 1 to 9 only!\n");
+	return;
+	}
+key=word[1][0]-'0';
+if (user->c4_turn) {
+if (key == 27) return;
+        if ((key > 0) && (key < 8)) {
+                for (y=6;y>0;y--) {
+                    f = y;
+     if (user->c4_board[key][f]==0 || user->c4_opponent->c4_board[key][f]==0)
+     break;
+     }
+     user->c4_board[key][f] = 1;
+     user->c4_opponent->c4_board[key][f] = 2;
+     print_board(user);
+     print_board(user->c4_opponent);
+     f = 0;
+     user->c4_moves++;
+     dropped=user->c4_moves+user->c4_opponent->c4_moves;
+     user->c4_turn=0;
+     user->c4_opponent->c4_turn=1;
+     sprintf(text,"~CW-> ~CMConnect Four~CT: ~CYIt is now %s~CY's turn~CG.\n",user->c4_opponent->recap);
+     write_user(user,text);
+     write_user(user->c4_opponent,"~CW-> ~CMConnect Four~CT: ~CGIt is now your turn~CY.\n");
+     }
+}
+else { write_user(user,"It is not your turn\n");
+        return;
+        }
+          if (!connect_win(user)) return;
+          if (connect_win(user)) {
+                sprintf(text,"~CW-> ~CMConnect Four~CT: ~CM%s ~CMkicked some ass at this game and wins $%d!  Way To Go!\n",user->recap,C4WINPOT);
+		user->bank_balance+=C4WINPOT;
+                }
+          else if (connect_win(user->c4_opponent)) {
+                sprintf(text,"~CM%s~FY kicked some ass at this game and wins $%d!  Way To Go!\n",user->c4_opponent->recap,C4WINPOT);
+		user->c4_opponent->bank_balance+=C4WINPOT;
+                }
+          else if (dropped==42) {
+                sprintf(text,"~CW-> ~CMConnect Four~CT: ~CYDag nab it, It was a draw between you two!\n~CW-> ~CMConnect Four~CT: ~CYYou both recieve $%d each.\n",C4DRAWPOT);
+		user->bank_balance+=C4DRAWPOT;
+		user->c4_opponent->bank_balance+=C4DRAWPOT;
+                }
+print_board(user);
+print_board(user->c4_opponent);
+write_user(user,text);
+write_user(user->c4_opponent,text);
+for (y=1;y<7;y++) {
+        for(x=1;x<8;x++) {
+        user->c4_board[x][y]=0;
+        user->c4_opponent->c4_board[x][y]=0;
+        }
+    }
+user->c4_moves=0;
+user->c4_opponent->c4_moves=0;
+user->c4_opponent->c4_opponent=NULL;
+user->c4_opponent=NULL;
+}
+
+/* Draws the board, and shows where each users pieces are.*/
+void print_board(UR_OBJECT user)
+{
+int x,y;
+write_user(user,"\n\n");
+write_user(user,"  ~CB.---.---.---.---.---.---.---.\n");
+for (y=1;y<7;y++) {
+        for (x=1;x<8;x++) {
+	       if (x==1) write_user(user,"  ~CB|");
+               else write_user(user,"~CB|");
+               if (user->c4_board[x][y] == 0) write_user(user,"   ");
+               if (user->c4_board[x][y] == 1) write_user(user,"~CR X ~RS");
+               if (user->c4_board[x][y] == 2) write_user(user,"~CW O ~RS");
+               if (x == 7) write_user(user,"~CB|\n");
+               }
+	 if (y==6) write_user(user,"  ~CB|===========================|~RS \n");   
+         else write_user(user,"  ~CB|---+---+---+---+---+---+---|~RS \n");   
+         }
+write_user(user,"  ~CB| ~CY1~CB | ~CY2~CB | ~CY3~CB | ~CY4~CB | ~CY5~CB | ~CY6~CB | ~CY7~CB | ~RS\n");
+write_user(user,"  ~CB`==========================='~RS \n\n");
+}
+
+/* Scans through the board and checks for a winner. */
+int connect_win(UR_OBJECT user)
+{
+int x,y,p;
+for (y=1;y<7;y++) {
+        for (x=1;x<8;x++) {
+                for (p=1;p<3;p++) {
+                    if (x+3<8) {
+                    if ((user->c4_board[x][y] == p) && (user->c4_board[x+1][y] == p) && (user->c4_board[x+2][y] == p) && (user->c4_board[x+3][y] == p)) return p;
+                    }
+                    if (y+3<7) {
+                    if ((user->c4_board[x][y] == p) && (user->c4_board[x][y+1] == p)  && (user->c4_board[x][y+2] == p) && (user->c4_board[x][y+3] == p)) return p;
+                    }
+                    if ((x+3<8) && (y+3<7)) {
+                    if ((user->c4_board[x][y] == p) && (user->c4_board[x+1][y+1] == p)  && (user->c4_board[x+2][y+2] == p) && (user->c4_board[x+3][y+3] == p)) return p;
+                    }
+                    if ((x-3>0) && (y+3<7)) {
+                    if ((user->c4_board[x][y] == p) && (user->c4_board[x-1][y+1] == p)  && (user->c4_board[x-2][y+2] == p) && (user->c4_board[x-3][y+3] == p)) return p;
+                    }
+               }
+          }
+     }
+     return 0;
+}
+
+/* End Of Connect Four */

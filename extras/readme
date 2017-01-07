@@ -1,0 +1,9 @@
+Here is pre-compiled versions of the Moesoft C utilities.
+I don't support them, but they're useful for a couple things.
+
+Just call them without a filename to see how to use them, I.e.
+
+./bcheck
+
+
+Cheers!

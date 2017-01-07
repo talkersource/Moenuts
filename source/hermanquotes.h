@@ -1,7 +1,6 @@
 /******************************************************************************
 
-        MoeNUTS v1.51+  Definable Quote Of The Day Library "HERMAN"
-
+   MoeNUTS v1.51+  Definable Quote Of The Day Library "HERMAN"
 
    All quotes in this file were taken from Jim Unger's 'The Second Herman
    Treasury' (C)1980, Universal Press Syndicate, All Rights Reserved...

@@ -1,0 +1,21 @@
+
+WTF is NV2?
+
+It stands for: NUTS View v2!  yay!
+
+ok, so, WTF is NV2?  oh.. Ok Well nv2 is a small program that allows
+you to view text files with NUTS/Moenuts style colour codes in it.
+It follows both the NUTS and the Moenuts/RaMTITS ~Fx and ~Cx colour
+code formats and formats the results on the screen so you can view
+screens for your talker without having to keep viewing them inside
+your talker.  It helps to be able to view the screens in the shell
+while you're working on them.
+
+As a tip, you might see if your system administrator will put
+this little program in /usr/local/bin if you use it alot.
+
+If you're using it on tdf.ca, we already have it installed! :-)
+
+Enjoy.
+- Mike.
+

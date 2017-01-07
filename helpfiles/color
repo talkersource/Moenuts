@@ -24,15 +24,7 @@ Foreground colour tags...
   ^~FG : ~FGGreen
   ^~FB : ~FBBlue
   ^~FT : ~FTTurquoise/bright blue
-  ^~FW : ~FWWhite
-  ^~CK : ~CKForeground black
-  ^~CM : ~CMMagenta/purple
-  ^~CR : ~CRRed
-  ^~CY : ~CYYellow/orange
-  ^~CG : ~CGGreen
-  ^~CB : ~CBBlue
-  ^~CT : ~CTTurquoise/bright blue
-  ^~CW : ~CWWhite
+  ^~FW : White
 
 Background colour tags...
 

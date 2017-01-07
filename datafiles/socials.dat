@@ -1,294 +1,408 @@
 sochug
 personal
-$UN wraps $UG2 arms around $UG1self in an attempt at a one person hug.
-$UN wraps $UG2 arms around $VN hugging $VG1 tightly.
-$UN starts to hug $TXT
+$UN~RS wraps $UG2 arms around $UG1self in an attempt at a one person hug.
+$UN~RS wraps $UG2 arms around $VN~RS hugging $VG1 tightly.
+$UN~RS starts to hug $TXT
 *
 sockiss
 personal
-$UN closes $UG2 eyes and puckers up hoping for a kiss.
-$UN leans into $VN and shares a passionate kiss with $VG1.
-$UN starts to kiss $TXT
+$UN~RS closes $UG2 eyes and puckers up hoping for a kiss.
+$UN~RS leans into $VN~RS and shares a passionate kiss with $VG1.
+$UN~RS starts to kiss $TXT
 *
 soclick
 public
-$UN licks $UG1self...  WHOA!  How does $UG3 do that!!??
-$UN licks $VN.  YUMMY!! :)
-$UN licks $TXT
+$UN~RS licks $UG1self...  WHOA!  How does $UG3 do that!!??
+$UN~RS licks $VN~RS.  YUMMY!! :)
+$UN~RS licks $TXT
 *
 wack
 public
-$UN wacks $UG2 head on the desk... That'll leave a mark!
-$UN wacks $VN's head on the desk... That'll leave a mark!
-$UN wacks $TXT
+$UN~RS wacks $UG2 head on the desk... That'll leave a mark!
+$UN~RS wacks $VN~RS's head on the desk... That'll leave a mark!
+$UN~RS wacks $TXT
 *
 punch
 public
-$UN punches $UG1self in the arm... OUCH!!
-$UN punches $VN playfully in the arm...
-$UN punches $TXT
+$UN~RS punches $UG1self in the arm... OUCH!!
+$UN~RS punches $VN~RS playfully in the arm...
+$UN~RS punches $TXT
 *
 stab
 public
-$UN stabs $UG2 ... Umm nevermind...
-$UN takes a wild stab at $VN.
-$UN stabs $TXT
+$UN~RS stabs $UG2 ... Umm nevermind...
+$UN~RS takes a wild stab at $VN~RS.
+$UN~RS stabs $TXT
 *
 flirt
 public
-$UN flirts with everyone in the room.
-$UN bats $UG2 eyelashes at $VN in an attempt to flirt with $VG1.
-$UN flirts with $TXT
+$UN~RS flirts with everyone in the room.
+$UN~RS bats $UG2 eyelashes at $VN~RS in an attempt to flirt with $VG1.
+$UN~RS flirts with $TXT
 *
 fart
 public
-$UN breaks wind and tries to hide the fact...
-$UN farts in $VN's general direction and $VG3 almost passes out from the smell...
-$UN farts $TXT
+$UN~RS breaks wind and tries to hide the fact...
+$UN~RS farts in $VN~RS's general direction and $VG3 almost passes out from the smell...
+$UN~RS farts $TXT
 *
 poop
 public
-$UN has to run the restroom to sit on the throne...
-$UN invites $VN to sit with $UG1 in the restroom, what a sicko $UG3 is!
-$UN sits on the throne and $TXT
+$UN~RS has to run the restroom to sit on the throne...
+$UN~RS invites $VN~RS to sit with $UG1 in the restroom, what a sicko $UG3 is!
+$UN~RS sits on the throne and $TXT
 *
 pee
 public
-$UN pees $UG1self from laughing soo hard..
-$UN invites $VN to watch $UG1 pee...
-$UN pees on $TXT
+$UN~RS pees $UG1self from laughing soo hard..
+$UN~RS invites $VN~RS to watch $UG1 pee...
+$UN~RS pees on $TXT
 *
 beg
 public
-$UN gets down on $UG2 knees and begs for forgiveness...
-$UN gets down on $UG2 knees and begs $VN for some... Umm... Err... Forgiveness!  Yeah, That's it!
-$UN grovels: $TXT
+$UN~RS gets down on $UG2 knees and begs for forgiveness...
+$UN~RS gets down on $UG2 knees and begs $VN~RS for some... Umm... Err... Forgiveness!  Yeah, That's it!
+$UN~RS grovels: $TXT
 *
 freak
 public
-$UN freaks out and runs rampid through the streets!
-$UN freaks on $VN and starts flailing $UG2 arms at $VG1 trying to make $UG2 point!
-$UN freaks $TXT
+$UN~RS freaks out and runs rampid through the streets!
+$UN~RS freaks on $VN~RS and starts flailing $UG2 arms at $VG1 trying to make $UG2 point!
+$UN~RS freaks $TXT
 *
 fly
 public
-$UN thinks $UG3 can fly and jumps out the window....!!! SMACK !!! ~BP(What a Dork $UG3 is!)
-$UN tries to fly over to $VN and falls flat on $UG2 face... !!! THUD !!!~BP (What A Dork $UG3 is!)
-$UN flies $TXT
+$UN~RS thinks $UG3 can fly and jumps out the window....!!! SMACK !!! ~BP(What a Dork $UG3 is!)
+$UN~RS tries to fly over to $VN~RS and falls flat on $UG2 face... !!! THUD !!!~BP (What A Dork $UG3 is!)
+$UN~RS flies $TXT
 *
 sex
 public
-$UN looks around for someone to sex...
-$UN struts $UG2 stuff infront of $VN hoping to sex $VG1... $TXT
-$UN sexes $TXT
+$UN~RS looks around for someone to sex...
+$UN~RS struts $UG2 stuff infront of $VN~RS hoping to sex $VG1... $TXT
+$UN~RS sexes $TXT
 *
 jump
 public
-$UN jumps for joy!
-$UN grabs $VN's hand and starts jumping around the room...
-$UN jumps $TXT
+$UN~RS jumps for joy!
+$UN~RS grabs $VN~RS's hand and starts jumping around the room...
+$UN~RS jumps $TXT
 *
 saranade
 public
-$UN saranades everyone in the room with song...
-$UN gets down on one knee and starts to saranade $VN, (8) $TXT (8)...
-$UN saranades: (8) $TXT (8)
+$UN~RS saranades everyone in the room with song...
+$UN~RS gets down on one knee and starts to saranade $VN~RS, (8) $TXT (8)...
+$UN~RS saranades: (8) $TXT (8)
 *
 sleep
 public
-$UN falls asleep.
-$UN crawls in bed with $VN and falls asleep with $VG1.  $TXT
-$UN sleeps with $TXT
+$UN~RS falls asleep.
+$UN~RS crawls in bed with $VN~RS and falls asleep with $VG1.  $TXT
+$UN~RS sleeps with $TXT
 *
 supercala
 public
-$UN is stupid enough to try and spell 'supercalafragilisticexpealadocous'
-$UN looks at $VN and sings (8) supercalafragilisticexpealadochous (8)
-$UN mumbles 'Supercalafragilisticexpealadocous' $TXT
+$UN~RS is stupid enough to try and spell 'supercalafragilisticexpealadocous'
+$UN~RS looks at $VN~RS and sings (8) supercalafragilisticexpealadochous (8)
+$UN~RS mumbles 'Supercalafragilisticexpealadocous' $TXT
 *
 cocacola
 public
-$UN grabs a Coca-Cola out of the fridge and slams it down... !!! AHHH !!!
-$UN grabs a Coca-Cola out of the fridge and hands it to $VN...  $TXT
-$UN grabs a Coca-Cola and $TXT
+$UN~RS grabs a Coca-Cola out of the fridge and slams it down... !!! AHHH !!!
+$UN~RS grabs a Coca-Cola out of the fridge and hands it to $VN~RS...  $TXT
+$UN~RS grabs a Coca-Cola and $TXT
 *
 pepsi
 public
-$UN grabs a Pepsi out of the fridge and slams it down... !!! AHHH !!!
-$UN grabs a Pepsi out of the fridge and hands it to $VN...  $TXT
-$UN grabs a Pepsi and $TXT
+$UN~RS grabs a Pepsi out of the fridge and slams it down... !!! AHHH !!!
+$UN~RS grabs a Pepsi out of the fridge and hands it to $VN~RS...  $TXT
+$UN~RS grabs a Pepsi and $TXT
 *
 beer
 public
-$UN buys a round of beer for everyone in the room.
-$UN throws $VN a beer.  $TXT
-$UN grabs a beer and $TXT
+$UN~RS buys a round of beer for everyone in the room.
+$UN~RS throws $VN~RS a beer.  $TXT
+$UN~RS grabs a beer and $TXT
 *
 soclook
 public
-$UN looks around the room.
-$UN looks over at $VN.  Wonder what $UG3 wants?
-$UN looks $TXT
+$UN~RS looks around the room.
+$UN~RS looks over at $VN~RS.  Wonder what $UG3 wants?
+$UN~RS looks $TXT
 *
 glance
 public
-$UN glances at everyone in the room.
-$UN takes a quick glance at $VN.  $TXT
-$UN glances $TXT
+$UN~RS glances at everyone in the room.
+$UN~RS takes a quick glance at $VN~RS.  $TXT
+$UN~RS glances $TXT
 *
 wink
 public
-$UN winks.
-$UN winks seductively at $VN.  $TXT
-$UN winks $TXT
+$UN~RS winks.
+$UN~RS winks seductively at $VN~RS.  $TXT
+$UN~RS winks $TXT
 *
 strut
 public
-$UN struts $UG2 stuff for everybody.
-$UN struts $UG2 stuff trying to impress $VN.  Wonder if $VG3's impressed?
-$UN struts $TXT
+$UN~RS struts $UG2 stuff for everybody.
+$UN~RS struts $UG2 stuff trying to impress $VN~RS.  Wonder if $VG3's impressed?
+$UN~RS struts $TXT
 *
 wiggle
 public
-$UN wiggles $UG2 nose.
-$UN wiggles and giggles and winks at $VN.  $TXT
-$UN wiggles $TXT
+$UN~RS wiggles $UG2 nose.
+$UN~RS wiggles and giggles and winks at $VN~RS.  $TXT
+$UN~RS wiggles $TXT
 *
 code
 public
-$UN thinks $UG3 can code.
-$UN begs $VN to help $UG1 code.
-$UN tries to code $TXT
+$UN~RS thinks $UG3 can code.
+$UN~RS begs $VN~RS to help $UG1 code.
+$UN~RS tries to code $TXT
 *
 love
 public
-$UN is full of...um...Love!
-$UN states $UG2 un-dying love for $VN.
-$UN loves $TXT
+$UN~RS is full of...um...Love!
+$UN~RS LOVES on $VN~RS.  How Sweet!  $TXT
+$UN~RS LOVES on $TXT
 *
 twist
 public
-$UN does the twist!
-$UN twists $VN like a pretzel!
-$UN twists $TXT
+$UN~RS does the twist!
+$UN~RS twists $VN~RS like a pretzel!
+$UN~RS twists $TXT
 *
-socpoke
+poke
 public
-$UN pokes $UG1self.
-$UN pokes $VN lightly in the side.
-$UN pokes $TXT
+$UN~RS pokes $UG1self.
+$UN~RS pokes $VN~RS lightly in the side.
+$UN~RS pokes $TXT
 *
 giggle
 public
-$UN giggles like a little school girl!
-$UN giggles like a little school girl at $VN!
-$UN giggles $TXT
+$UN~RS giggles like a little school girl!
+$UN~RS giggles like a little school girl at $VN~RS!
+$UN~RS giggles $TXT
 *
 toast
 public
-$UN throws toast around the room.
-$UN throws toast at $VN.
-$UN proposes a toast $TXT
+$UN~RS throws toast around the room.
+$UN~RS throws toast at $VN~RS.
+$UN~RS proposes a toast $TXT
 *
 foodfight
 public
-$UN starts throwing $UG2 food around in an attempt to start a food fight!
-$UN launches a pea with $UG2 spoon at $VN hitting $VG1 right between the eyes! !! FOOD FIGHT !!
-$UN declairs a !! FOOD FIGHT !! and $TXT
+$UN~RS starts throwing $UG2 food around in an attempt to start a food fight!
+$UN~RS launches a pea with $UG2 spoon at $VN~RS hitting $VG1 right between the eyes! !! FOOD FIGHT !!
+$UN~RS declairs a !! FOOD FIGHT !! and $TXT
 *
 spam
 public
-$UN ~RS~OL~FRsings ~FGo/~ ~FTSpam, Spam Spam Spam... ~FGo/~
-$UN steals all of $VN's spam when $UG3's not looking!
-$UN eats $UG2 spam and $TXT
+$UN~RS ~RS~OL~FRsings ~FGo/~ ~FTSpam, Spam Spam Spam... ~FGo/~
+$UN~RS steals all of $VN~RS's spam when $UG3's not looking!
+$UN~RS eats $UG2 spam and $TXT
 *
 telephone
 public
-$UN runs to answer the telephone...
-$UN runs to answer the telephone hoping to hear $VN's voice!
-$UN runs to answer the telephane $TXT
+$UN~RS runs to answer the telephone...
+$UN~RS runs to answer the telephone hoping to hear $VN~RS's voice!
+$UN~RS runs to answer the telephane $TXT
 *
 ponder
 public
-$UN sinks deeply into thought...
-$UN ponders what $VN is doing...
-$UN ponders $TXT
+$UN~RS sinks deeply into thought...
+$UN~RS ponders what $VN~RS is doing...
+$UN~RS ponders $TXT
 *
 nod
 public
-$UN nods solemnly.
-$UN nods solemnly at $VN.
-$UN nods solemnly $TXT
+$UN~RS nods solemnly.
+$UN~RS nods solemnly at $VN~RS.
+$UN~RS nods solemnly $TXT
 *
 lemonade
 public
-$UN opens a lemonade stand.
-$UN offers $VN a glass of lemonade.
-$UN opens a lemonade stand and $TXT
+$UN~RS opens a lemonade stand.
+$UN~RS offers $VN~RS a glass of lemonade.
+$UN~RS opens a lemonade stand and $TXT
 *
 www
 public
-$UN trips on the World Wide Web and falls flat on $UG2 face!
-$UN looks at $VN in confusion...www.com... What?!?!
-$UN shows the following URL: $TXT
+$UN~RS trips on the World Wide Web and falls flat on $UG2 face!
+$UN~RS looks at $VN~RS in confusion...www.com... What?!?!
+$UN~RS shows the following URL: $TXT
 *
 soctalk
 public
-$UN starts to talk in tongues...
-$UN talks in tongues to $VN.
-$UN mumbles something about $TXT
+$UN~RS starts to talk in tongues...
+$UN~RS talks in tongues to $VN~RS.
+$UN~RS mumbles something about $TXT
 *
 upromote
 public
-$UN ~RS~OL~FGhas been promoted to level: ~FWGOD!
-$UN ~RS~OL~FGhas promoted $VN ~RS~OL~FGto level: ~FWADMIN!
-$UN ~RS~OL~FGhas been promoted to level: ~FW$TXT
+$UN~RS ~RS~OL~FGhas been promoted to level: ~FWGOD!
+$UN~RS ~RS~OL~FGhas promoted $VN~RS ~RS~OL~FGto level: ~FWADMIN!
+$UN~RS ~RS~OL~FGhas been promoted to level: ~FW$TXT
 *
 udemote
 public
-$UN ~RS~OL~FRhas been demoted to level: ~FWFREAK!
-$UN ~RS~OL~FRhas demoted $VN ~RS~OL~FRto level: ~FWFREAK!
-$UN ~RS~OL~FRhas been demoted to level: ~FW$TXT
+$UN~RS ~RS~OL~FRhas been demoted to level: ~FWFREAK!
+$UN~RS ~RS~OL~FRhas demoted $VN~RS ~RS~OL~FRto level: ~FWFREAK!
+$UN~RS ~RS~OL~FRhas been demoted to level: ~FW$TXT
 *
 thwap
 public
-$UN thwaps $UG1self silly.
-$UN thwaps $VN.
-$UN thwaps $TXT
+$UN~RS thwaps $UG1self silly.
+$UN~RS thwaps $VN~RS.
+$UN~RS thwaps $TXT
 *
 buzz
 public
-$UN buzzes all $UG2 body hair off!
-$UN buzzes all of $VN's body hair off!
-$UN buzzes $TXT
+$UN~RS buzzes all $UG2 body hair off!
+$UN~RS buzzes all of $VN~RS's body hair off!
+$UN~RS buzzes $TXT
 *
 noogie
 public
-$UN gives $UG1self a noogie...WHATTA FREAK!:)
-$UN grabs $VN and gives $VG1 a noogie!
-$UN noogies $TXT
+$UN~RS gives $UG1self a noogie...WHATTA FREAK!:)
+$UN~RS grabs $VN~RS and gives $VG1 a noogie!
+$UN~RS noogies $TXT
 *
 drool
 public
-$UN drools all over the floor!  EWW!!
-$UN drools at the sight of $VN!
-$UN drools $TXT
+$UN~RS drools all over the floor!  EWW!!
+$UN~RS drools at the sight of $VN~RS!
+$UN~RS drools $TXT
 *
 socshackle
 personal
-$UN stands with shackles in $UG2 hand.
-$UN grins at $VN and shackles $VG1 to the bed.
-$UN shackles $TXT
+$UN~RS stands with shackles in $UG2 hand.
+$UN~RS grins at $VN~RS and shackles $VG1 to the bed.
+$UN~RS shackles $TXT
 *
 ?
 personal
-$UN ~RSReminds Everyone: for help, you can use .help, or .help <command>!
-$UN tells $VN: for help, you can use .help, or .help <command>!
-$UN ~RS$TXT
+$UN~RS ~RSReminds Everyone: for help, you can use .help, or .help <command>!
+$UN~RS tells $VN~RS: for help, you can use .help, or .help <command>!
+$UN~RS ~RS$TXT
 *
 sexy
 public
-$UN thinks $UG3's the sexiest thing $UG3's ever seen.
-$UN think's $VN's is just the sexiest thing $UG3's ever seen!.
-$UN thinks $TXT is sexy.
+$UN~RS thinks $UG3's the sexiest thing $UG3's ever seen.
+$UN~RS think's $VN~RS's is just the sexiest thing $UG3's ever seen!.
+$UN~RS thinks $TXT is sexy.
+*
+pudding
+public
+$UN~RS jumps into a big vat of chocolate pudding!
+$UN~RS covers $VN~RS with Chocolate Pudding!
+$UN~RS splashes around in chocolate pudding and shouts: $TXT!
+*
+stumble
+public
+$UN~RS has too much to drink and stumbles then falls over.
+$UN~RS stumbles and falls on top of $VN~RS almost crushing $VG1.
+$UN~RS stumbles $TXT
+*
+chocolate
+public
+~FY$UN~RS starts to paint chocolate sauce all around the room.
+~FY$UN~RS flings chocolate paint at $VN~RS.
+~FY$UN~RS slowly dribbles chocolate sauce all over $TXT
+*
+peel
+public
+$UN~RS slips on an orange peel (what a moron $UG3 is!)
+$UN~RS throws orange peels at $VN~RS
+$UN~RS throws orange peels all over the floor and $TXT
+*
+paint
+public
+$UN~RS shoots paintballs at your foot
+$UN~RS smears paint all over $VN~RS
+$UN~RS tackles you into a vat of paint $TXT
+*
+woohoo
+public
+$UN~RS ~CTshouts ~CRW~CMO~CGO~CYH~CBO~CYO~CT!
+$UN~RS ~CTlooks at $VN~RS ~CTand shouts ~CRW~CMO~CGO~CYH~CBO~CYO~CT!
+$UN~RS ~CT$TXT ~CTand shouts ~CRW~CMO~CGO~CYH~CBO~CYO~CT!
+*
+bite
+public
+$UN~RS trying to bite $UG1self......isnt that nuts?
+$UN~RS nibbles on $VN~RS's neck and sinks $UG2 fangs in.
+$UN~RS nibbles on $TXT
+*
+flower
+public
+$UN~RS pouts and drops a ~CR(@)~CG----->------
+$UN~RS gives $VN~RS a ~CR(@)~CG----->------ 
+$UN~RS ~CR(@)~CG----->------ $TXT
+*
+kick
+public
+$UN~RS tries to kick $UG2 own butt.... Isn't that just weird?
+$UN~RS kicks $VN~RS's butt into the middle of next week!
+$UN~RS kicks $TXT in the butt.
+*
+slap
+public
+$UN~RS smacks $UG1self awake!
+$UN~RS smacks $VN~RS so hard $VG3 goes insane!
+$UN~RS smacks $TXT
+*
+batbeat 
+public
+$UN~RS beats $UG1self at $UG2 own game.  How does that work?
+$UN~RS beats $VN~RS about the head and shoulders with a plastic bat.
+$UN~RS beats $TXT
+*
+wedgie
+public
+$UN~RS gives $UG1self an atomic wedgie!
+$UN~RS gives $VN~RS a wedgie so bad $VG3 speaks like a girl for a week!
+$UN~RS gives $TXT an atomic wedgie.
+*
+smooch
+public
+$UN~RS gives $UG1self a ~CYS~CRm~CYo~CRo~CYo~CRo~CYo~CRo~CYo~CRo~CYo~CRo~CYo~CRo~CYo~CRo~CYc~CRh ~CGisn't that pitiful!
+$UN~RS gives $VN~RS a ~CYS~CRm~CYo~CRo~CYo~CRo~CYo~CRo~CYo~CRo~CYo~CRo~CYo~CRo~CYo~CRo~CYc~CRh ~CG.....~CBThat makes $VG2 toes curl!
+$UN~RS gives $TXT a ~CYS~CRm~CYo~CRo~CYo~CRo~CYo~CRo~CYo~CRo~CYo~CRo~CYo~CRo~CYo~CRo~CYc~CRh ~CG.....
+*
+tackle
+public
+$UN~RS tackle $UG1self to the ground isn't $UG3 a strange one?
+$UN~RS tackles $VN~RS hard enough to crack some ribs!  OUCH!  THAT'S GOT TO HURT!
+$UN~RS tackles $TXT
+*
+bear
+public
+$UN~RS trys to bear squeeze $UG1self.......$UG3 feels so unloved! :'(
+$UN~RS bearhugs $UG2 friend $VN~RS like $UG3 havent seen $VG1 in a long time!
+$UN~RS bearhugs $TXT
+*
+highfive
+public
+$UN~RS looks around for someone to highfive.
+$UN~RS highfives $VN~RS 
+$UN~RS highfives: $TXT
+*
+peek
+public
+$UN~RS peeks out from the covers..... Aint $UG3 just cute!
+$UN~RS peeks out and pokes $VN~RS
+$UN~RS peeks $TXT
+*
+blanket
+public
+$UN~RS wraps a blanket around $UG1self and sits in the corner.
+$UN~RS wraps a blanket around $VN~RS and snuggles up with $VG1.
+$UN~RS wraps $TXT in a blanket.
+*
+dance
+public
+$UN~RS starts to dance with $UG1self.
+$UN~RS takes $VN~RS by the hand and leads $VG1 to the dance floor for a slow dance.
+$UN~RS dances $TXT
 *

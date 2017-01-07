@@ -11,22 +11,23 @@
 
 #include "prototypes.h"
 
-#define WEBUPDATE	1  /* Update Talker's Webpage?  1 = Yes, 0 = No */
-#define WEBDIR		"/home/username/webpage"
-#define WEBUSERDIR	"/home/username/webpage/userpages"
+#define WEBUPDATE	0  /* Update Talker's Webpage?  1 = Yes, 0 = No */
+#define WEBWHOUPDATE    0  /* Do A Webwho Datafile?     1 = Yes, 0 = No */
+#define WEBDIR		"../public_html"
+#define WEBUSERDIR	"../public_html"
 #define WEBUSERFILETYPE	"web" /* Type the userpage's final output will be (.php, .html etc) */
 #define WEBBANNER	"banner.gif"
-#define WEBSEPARATOR	"blood.gif"
+#define WEBSEPARATOR	"sepline.gif"
 #define WEBBACKGROUND	"background.gif"
 #define WEBBGCOLOR	"#000000"  /* BGCOLOR for talker generated pages    */
 #define WEBFGCOLOR	"#CCCCCC"  /* FGCOLOR for talker generated pages    */
 #define WEBLINKCOLOR	"#FF0000"  /* LINKCOLOR for Talker Generated Pages  */
 #define WEBVLINKCOLOR	"#00FF00"  /* VLINKCOLOR for Talker Generated Pages */
-#define WEBWHODIR	"/home/username/webpage"
+#define WEBWHODIR	"../public_html"
 #define WEBWHOFILE	"webwho.temp"
 #define UPVERSION	"1"
 
-/* Moesoft HTML Rutines (C)1999-2001 Michael Irving, All Rights Reserved */
+/* Moesoft HTML Rutines (C)1999-2004 Michael Irving, All Rights Reserved */
 
 int webwho(void)
 {
@@ -43,11 +44,13 @@ char filename[81];
 
 total=0;  invis=0;  logins=0;  hidden=0;
 
+if (!WEBWHOUPDATE) return 1;
+
 /* Lets attempt to open the file first?? :) */
 
 sprintf(filename,"%s/%s",WEBWHODIR,WEBWHOFILE);
 if (!(fp=fopen(filename,"w"))) {
-        sprintf(text,"Error Opening: %s :in WebWho()\n",filename);
+        sprintf(text,"Error Opening : %s : in WebWho()\n",filename);
 	write_syslog(text,1);
 #ifdef DEBUG
 	write_room(NULL,text);
@@ -198,9 +201,9 @@ while(!feof(fp)) {
 			else { 
 				sprintf(text,"~RSCopying: %s~RS -> %s~RS [%d bytes]\n",filename2,filename3,bytes);
 				write_user(user,text);
-				sprintf(text,"~RSChanging Permissions of %s ",filename3);
-				write_user(user,text);
-				chmod(filename3,S_IROTH);
+				// sprintf(text,"~RSChanging Permissions of %s ",filename3);
+				// write_user(user,text);
+				// chmod(filename3,S_IROTH);
 				write_user(user,"[OK]\n");
 				}
 			if (!online) {

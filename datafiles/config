@@ -1,13 +1,13 @@
 # Main config file.
 
 INIT:
-mainport           9666
-wizport            9667 
+mainport           9996
+wizport            9997
 max_users          100
-max_clones         3
+max_clones         1
 heartbeat          2
 login_idle_time    60
-user_idle_time     1600
+user_idle_time     3600
 ban_swearing       NO
 password_echo      NO 
 ignore_sigterm     NO
@@ -26,9 +26,11 @@ gatecrash_level    God
 time_out_maxlevel  God
 crash_action       SREBOOT
 
-
 ROOMS:
 
-main   Main           staff 		                   PUB  main
-staff  Staff          main                      	   PRIV staff
-jail   Hell          staff                                 PRIV staff
+main   Island               rmone,rmtwo,rmthr 	           PUB  main
+rmone  Room_One             rmtwo,rmthr,main		   BOTH main
+rmtwo  Room_Two             rmone,rmthr,main		   BOTH main
+rmthr  Room_Three           rmone,rmtwo,main		   BOTH main
+staff  Staff_Room           main,jail			   PRIV staff
+jail   Jail                 staff                          PRIV staff

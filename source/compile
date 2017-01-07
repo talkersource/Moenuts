@@ -9,15 +9,15 @@ talkername="New Talker"
 #
 # What do you want your talker executable named? (i.e. moenuts)
 #
-exec="moenuts172"
+exec="moenuts"
 #
 # What is your talker's home directory/folder?
 #
-execdir="$HOME/moenuts172"
+execdir="$HOME/moenuts173"
 #
 # What is the name of the main source code file?
 #
-source="moenuts172.c"
+source="moenuts173.c"
 #
 # What is the name of your C compiler? (i.e. cc/gcc/egcs)
 # Using gcc is recomended!
@@ -28,16 +28,16 @@ cc="gcc"
 #
 # Some Valid Options Are:  
 #
-# -DINCLUDE_CRYPT_H (RedHat) (forces the include of <crypt.h>
 # -DDEBUG           Puts Moenuts in Debug Mode (For use w/ gdb, also include -g)
-# -DRESOLVE_IP      If you're having problems with your DNS server freezing the talker
+# -DRESOLVE_IP      If you're having problems with site lookups freezing talker
 # -lcrypt           Include the Crypt Library 
-# -Wall             Show ALL warning when compiling.
+# -DINCLUDE_CRYPT_H Forces the include of <crypt.h> (Some OS's May Require This)
+# -Wall             Show ALL warning when compiling. (No Warnings = More Stable)
 # -g                Including Debug info for GNU Debugger (use with -DDEBUG)
 # -O or -O2 of -O3  Set Optimization Level (Compiler Optimization)
 # 
 #ccops="-lcrypt -Wall -DDEBUG -g"
-ccops="-lcrypt -Wall"
+ccops="-lcrypt -Wall -DINCLUDE_CRYPT_H"
 
 #
 # Note: Note.  Some systems, i.e. Redhat and some BSD systems require you

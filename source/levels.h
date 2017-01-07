@@ -5,7 +5,8 @@
 #define USER     1 /* Define The Level For Regular Users           */
 #define MEMBER   1 /* Define The Level For Members                 */
 #define WIZ      2 /* Define The Level For Wizards (Staff)         */
-#define GAMES    3 /* Define The Level For Archs   (Staff)         */
+#define GAMES    3 /* Define The Level For SrWiz   (Staff)         */
+#define SRWIZ    3 /* Define The Level For SrWiz   (Staff)         */
 #define ARCH     4 /* Define The Level For Archs   (Staff)         */
 #define GOD      5 /* Define The Level For Gods    (Staff)         */
 /*******************************************************************/
@@ -19,12 +20,12 @@
 /* Male level names */
 
 char *level_name[]={
-"New","User","Wizard","Games","Arch","God","*"
+"New","User","Wizard","SrWizard","Admin","God","*"
 };
 
 /* Female Level Names */
 
 char *level_name_fem[]={
-"New","User","Wizard","Games","Arch","God","*"
+"New","User","Wizard","SrWizard","Admin","God","*"
 };
 

@@ -1,6 +1,6 @@
 /*###########################################################################
 #                                                                           #
-#      _.-._ Moenuts v1.72 (C)1997 - 2004 Michael Irving, AKA Moe _.-._     #
+#      _.-._ Moenuts v1.73 (C)1997 - 2004 Michael Irving, AKA Moe _.-._     #
 #                   (C)1997 - 2004 Moesoft Developments                     #
 #               Based on NUTS v3.3.3 (C)1996 Neil Robertson                 #
 #                                                                           #
@@ -18,6 +18,7 @@
 #  way for commands etc.                                                    #
 #                                                                           #
 #  Thanks Curmitt for helping debug some pointer things ;P                  #
+#  Objects Based On Object Code By Kevin Wojtysiak (Magius)                 #
 #                                                                           #
 #############################################################################
 #                          Contact Information                              #
@@ -79,14 +80,16 @@
 #include <errno.h>
 #include <string.h>
 #include <arpa/inet.h>
+#include <dirent.h>
 #include <ctype.h>
-#include <crypt.h>
+#include <stdlib.h>
 
 /* Needed to include this .h under Redhat Linux */
 #ifdef INCLUDE_CRYPT_H
   #include <crypt.h>
 #endif
 
+/* Fix Signal Issues on newer Glibc versions (which breaks time) */
 #if !defined(__GLIBC__) || (__GLIBC__ < 2)
   #define SIGNAL(x,y) signal(x,y)
 #else
@@ -105,22 +108,27 @@
 #include "hostinfo.h"                   /* Host System Information         */
 #include "atmospheres.h"                /* Default Atmosphere Library      */
 #include "levels.h"                     /* Level Definitions               */
-#include "sms.h"			/* Include SMS Message Function H  */
-#include "moenuts172.h"                 /* Main Header File For Moenuts    */
+#include "commands.h"                   /* Command Names And Level Defs    */
+#include "moenuts173.h"                 /* Main Header File For Moenuts    */
 #include "prompts.h"                    /* Moenuts Prompt File             */
+#include "object.h"			/* Object Code Header File         */
+#include "object.c"			/* Object Code Main Functions      */
+#include "use.c"                        /* Object Use Code                 */
+#include "botfunc.c"			/* Bot Stuff (Experimental)	   */
 #include "games.c"                      /* Include Game Library            */
-#include "prototypes.h"                 /* ANSI C Protoypes For Moenuts    */
 #include "afk.h"                        /* AFK Message Library             */
 #include "hermanquotes.h"               /* Quote Of The Day Library        */
 #include "moesofthtml.c"                /* Moesoft's Auto-HTML Functions   */
+#include "prototypes.h"                 /* ANSI C Protoypes For Moenuts    */
 #include "figlet.c"                     /* Add Figlets To Moenuts ;)       */
 #include "figlet.protos.h"              /* Figlet prototypes               */
 /***************************************************************************/
 /*                Please Do Not Change The Following                       */
 /***************************************************************************/
 #define VERSION "3.3.3"                 /* NUTS Base Version               */
-#define MNVERSION "1.72"                /* Moenuts Version                 */
+#define MNVERSION "1.73r2"              /* Moenuts Version                 */
 #define GWVERSION "0.9b"                /* Internet Post Office Gateway    */
+#define MNCOPYRIGHT "(C)1997-2004 Michael Irving, All Rights Reserved." /* */
 /***************************************************************************/
 /* This function calls the setup routines & contains the main program loop */
 /***************************************************************************/
@@ -137,26 +145,27 @@ strcpy(progname,argv[0]);
 if (argc<2) strcpy(confile,CONFIGFILE);
 else strcpy(confile,argv[1]);
 
+sleep(2);  /* Allow Old Process To Die Gracefully If Srebooted */
 credit_timer=0;
 #ifndef DEBUG
 printf("\033[2J\033[0m\033[1m\n");
 #endif
-printf("%s\n Starting Moenuts %s Telnet Chat Server...\n",HORIZ,MNVERSION);
+printf("%s\n Moenuts %s %s\n",HORIZ,MNVERSION,MNCOPYRIGHT);
 printf(" Based on NUTS %s (C)1996 by Neil Robertson.\n%s\n",VERSION,HORIZ);
 init_globals();
-sprintf(text,"|> Starting Server: Moenuts v%s ...\n",MNVERSION);
-write_syslog(text,0);
-printf("|> Waiting For Old Process To Die Gracefully If Sreboot...\n");
-sleep(2);
-set_date_time();
-init_signals();
-load_and_parse_config();
+sprintf(text,"|> Starting Server: Moenuts v%s...\n",MNVERSION);  write_syslog(text,0);
+printf("|> Booting Telnet Chat Server...\n");
+printf("|> Setting Time And Date...\n");             set_date_time();
+printf("|> Setting Up Signal Handler...\n");       init_signals();
+printf("|> Loading and Parsing Configuration...\n"); load_and_parse_config();
+printf("|> Loading objects into memory.\n");         parse_objects();
+printf("|> Loading room objects into memory.\n");    parse_room_objects();
 if (!possibly_reboot()) init_sockets();
-load_hist();
-printf("|> Checking Message Boards...\n");
-check_messages(NULL,1);
-printf("|> Counting Current Userbase...\n");
-count_users();
+printf("|> Checking Message Boards For Expired Messages & Message Counts...\n");          check_messages(NULL,1);
+printf("|> Counting Current Userbase...\n");        count_users();
+printf("|> Creating Bot's User Structure...\n");    create_bot(); /* Da bot */
+printf("|> Clearing Spod Lists...\n");              destroy_rank_lists();
+printf("|> Processing Users For Spod Lists...\n");  process_users();
 
 /* Run in background automatically. */
 #ifndef NOFORK
@@ -181,7 +190,7 @@ while(1) {
 	setup_readmask(&readmask);
 	if (select(FD_SETSIZE,&readmask,0,0,0)==-1) continue;
 	/* check for connection to listen sockets */
-        for(i=0;i<2;++i) { /* 3 = Netlink */
+        for(i=0;i<2;++i) {
 		if (FD_ISSET(listen_sock[i],&readmask))
 			accept_connection(listen_sock[i],i);
 		}
@@ -191,6 +200,10 @@ while(1) {
 	user=user_first;
 	while(user!=NULL) {
 		next=user->next; /* store in case user object is destructed */
+		/* Don't want to pass sockets < 0 or segfault! */
+		if (user->socket<0) { user=next; continue; }
+		/* Ignore The Bot User As It's Not A Network Type User */
+		if (user->type==BOT_TYPE) { user=next; continue; }
 		/* see if any data on socket else continue */
 		if (!FD_ISSET(user->socket,&readmask)) { user=next;  continue; }
 		/* see if client (eg telnet) has closed socket */
@@ -471,6 +484,25 @@ fscanf(fp,"%s",line);
 while(!feof(fp)) {
 	if (line[0]!='#' && line[0]) {
 		if (strstr(site,line)) {  fclose(fp);  return 1;  }
+		}
+	fscanf(fp,"%s",line);
+	}
+fclose(fp);
+return 0;
+}
+
+/*** See if connect site is to be masked ***/
+int is_user_bot(char *name)
+{
+FILE *fp;
+char line[82],filename[80];
+
+sprintf(filename,"%s/%s",DATAFILES,BOTLIST);
+if (!(fp=fopen(filename,"r"))) return 0;
+fscanf(fp,"%s",line);
+while(!feof(fp)) {
+	if (line[0]!='#' && line[0]) {
+		if (strstr(line,name)) {  fclose(fp);  return 1;  }
 		}
 	fscanf(fp,"%s",line);
 	}
@@ -1102,7 +1134,6 @@ room_first=NULL;
 room_last=NULL;
 po_game_first=NULL; /*** Poker ***/
 po_game_last=NULL;  /*** Poker ***/
-max_po_hist=0;      /*** Poker ***/
 clear_words();
 time(&boot_time);
 user_count=0;
@@ -1110,6 +1141,10 @@ if (ALLOW_AUTO_PROMOTE) sys_allow_autopromote=1;
 else sys_allow_autopromote=0;
 if (ALLOW_SUICIDE) sys_allow_suicide=1;
 else sys_allow_suicide=0;
+/* Objects */
+object_first=NULL;
+object_last=NULL;
+
 }
 
 /*** Initialise the signal traps etc ***/
@@ -1155,20 +1190,20 @@ switch(sig) {
 	case SIGSEGV:
 	switch(crash_action) {
 		case 0:
-                write_room(NULL,"\n\07~CB[~CYM~CYoenuts~CB]~CY:~CR ERROR~CW: ~FTSegmentation fault, initiating shutdown!\n");
+                write_room(NULL,"\n~CB[~CYM~CYoenuts~CB]~CY:~CR ERROR~CW: ~FTSegmentation fault, initiating shutdown!\n");
 		talker_shutdown(NULL,"a segmentation fault (SIGSEGV)",0);
 
 		case 1:
-                write_room(NULL,"\n\07~CB[~CYM~CYoenuts~CB]~CY:~CY A segmentation fault has just occured, Ignoreing!\n");
+                write_room(NULL,"\n~CB[~CYM~CYoenuts~CB]~CY:~CY A segmentation fault has just occured, Ignoreing!\n");
 		write_syslog("!! WARNING: A segmentation fault occured!\n",1);
 		longjmp(jmpvar,0);
 
 		case 2:
-                write_room(NULL,"\n\07~CB[~CYM~CYoenuts~CB]~CY: ~CRSegmentation fault error.  Rebooting talker!\n");
+                write_room(NULL,"\n~CB[~CYM~CYoenuts~CB]~CY: ~CRSegmentation fault error.  Rebooting talker!\n");
 		talker_shutdown(NULL,"a segmentation fault (SIGSEGV)",1);
 
 		case 3:
-                write_room(NULL,"\n\07~CB[~CYM~CYoenuts~CB]~CY: ~CRSegmentation fault error.  Attempting To Recover From It!\n");
+                write_room(NULL,"\n~CB[~CYM~CYoenuts~CB]~CY: ~CRSegmentation fault error.  Attempting To Recover From It!\n");
 		do_reboot(NULL);
 		}
 
@@ -1206,7 +1241,7 @@ void init_sockets(void)
 struct sockaddr_in bind_addr;
 int i,on,size;
 
-printf("|> Moenuts: Initialising Network Sockets, Main: %d and Wiz: %d\n",port[0],port[1]);
+printf("|> Initialising Network Sockets, Main: %d and Wiz: %d\n",port[0],port[1]);
 on=1;
 size=sizeof(struct sockaddr_in);
 bind_addr.sin_family=AF_INET;
@@ -1248,6 +1283,7 @@ char text2[ARR_SIZE*4+2];
 char *namestring();
 
 if (user==NULL) return;
+if (user->type==BOT_TYPE) return; /* Don't want all writes going to the bot */
 
 /** modified **/
 memset(tempstr,0,sizeof(tempstr)-1);
@@ -1263,15 +1299,107 @@ for(u=user_first;u!=NULL;u=u->next) {
 	strncpy(text2,tempstr,sizeof(text2)-1);
 	memset(tempstr,0,sizeof(tempstr)-1);
 	}
-strncpy(tempstr,text2,sizeof(tempstr)-1);
-/* MSN Style Emoticons In Text? */
 
+strncpy(tempstr,text2,sizeof(tempstr)-1);
+
+/* MSN Style Emoticons In Text? */
 strrep(tempstr,"(F)","~CR@~CG}--'--,---~RS",ARR_SIZE*3);
 strrep(tempstr,"(8)","~CBo/`~RS",ARR_SIZE*3);
 strrep(tempstr,"(B)","~CW[_]3~RS",ARR_SIZE*3);
 strrep(tempstr,"(D)","~CBY~CG`~RS",ARR_SIZE*3);
 
 /* End Of Emoticons */
+
+str=tempstr;
+start=str;
+buffpos=0;
+sock=user->socket;
+/* Process string and write to buffer. We use pointers here instead of arrays
+   since these are supposedly much faster (though in reality I guess it depends
+   on the compiler) which is necessary since this routine is used all the
+   time. */
+while(*str) {
+	if (*str=='\n') {
+		if (buffpos>OUT_BUFF_SIZE-6) {
+			write(sock,buff,buffpos);  buffpos=0;
+			}
+		/* Reset terminal before every newline */
+		if (user->colour) {
+			memcpy(buff+buffpos,"\033[0m",4);  buffpos+=4;
+			}
+		*(buff+buffpos)='\n';  *(buff+buffpos+1)='\r';
+		buffpos+=2;  ++str;
+		}
+	else {
+          /* See if its a ^ before a ~ , if so then we print colour command
+		   as text */
+          if (*str=='^' && *(str+1)=='~') {  ++str;  continue;  }
+          if (str!=start && *str=='~' && *(str-1)=='^') {
+			*(buff+buffpos)=*str;  goto CONT;
+			}
+          /* Process colour commands eg ~FM. We have to strip out the commands
+		   from the string even if user doesnt have colour switched on hence
+		   the user->colour check isnt done just yet */
+		if (*str=='~') {
+			if (buffpos>OUT_BUFF_SIZE-6) {
+				write(sock,buff,buffpos);  buffpos=0;
+				}
+			++str;
+			for(i=0;i<NUM_COLS;++i) {
+				if (!strncmp(str,colcom[i],2)) {
+					/* addict mods for random-ness */
+					switch(i) {
+					 case 33:
+					  i = 6 + rand() % 7;
+					 break;
+					 case 34:
+					  i = 13 + rand() % 7;
+					 break;
+					 case 35: /* 25, 7 */
+					  i = 26 + rand() % 6;
+					 break;
+					}
+
+					if (user->colour) {
+						memcpy(buff+buffpos,colcode[i],strlen(colcode[i]));
+						buffpos+=strlen(colcode[i])-1;
+						}
+					else buffpos--;
+					++str;
+					goto CONT;
+					}
+				}
+			*(buff+buffpos)=*(--str);
+			}
+		else *(buff+buffpos)=*str;
+		CONT:
+		++buffpos;   ++str;
+		}
+	if (buffpos==OUT_BUFF_SIZE) {
+		write(sock,buff,OUT_BUFF_SIZE);  buffpos=0;
+		}
+	}
+if (buffpos) write(sock,buff,buffpos);
+/* Reset terminal at end of string */
+if (user->colour) write_sock(sock,"\033[0m");
+}
+
+/*** Send message to user ***/
+void write_user_nr(UR_OBJECT user,char *str)
+{
+int buffpos,sock,i;
+char *start,buff[OUT_BUFF_SIZE],*colour_com_strip();
+char tempstr[ARR_SIZE*4+2],name[USER_RECAP_LEN+5];
+char text2[ARR_SIZE*4+2];
+char *namestring();
+
+if (user==NULL) return;
+
+/** modified **/
+memset(tempstr,0,sizeof(tempstr)-1);
+memset(name,0,sizeof(name)-1);
+strncpy(tempstr,str,(ARR_SIZE*3)-2);
+strncpy(text2,tempstr,sizeof(text2)-1);
 
 str=tempstr;
 start=str;
@@ -1660,7 +1788,7 @@ switch(user->login) {
 			sprintf(text,"%s\n",enterprompt);
                         write_user(user,center(text,79));
 			}
-		write_user(user,center("~FTMoenuts v1.72, (C)1997-2003 Michael Irving, All Rights Reserved.\n",79));
+		write_user(user,center("~FTMoenuts v1.73, (C)1997-2004 Michael Irving, All Rights Reserved.\n",79));
 		/*  Display Version Prompt */
 		user->login=4;
 		return;
@@ -1704,6 +1832,7 @@ switch(user->login) {
 	user->muzzled=0;
 	user->command_mode=0;
 	user->prompt=prompt_def;
+	user->gender=0;
 	user->colour=colour_def;
 	user->charmode_echo=charecho_def;
 	user->win=0;
@@ -1855,12 +1984,11 @@ if (!(fp=fopen(filename,"w"))) {
 /* I'm Guessing 96 Integers Will Be Enough For Future Expansion For A While? */
 
 temp=0;  strcpy(tempstr,"None");  /* Temporary Variable Initialization */
-
 fprintf(fp,"%d %d %d %d %d %d\n",user->ignore,user->branded,user->callared,user->bank_update,user->hideroom,user->bdsm_type);
 fprintf(fp,"%d %d %d %d %d %d\n",user->mailbox_limit,user->bank_balance,user->bdsm_life_type,user->hide_email,temp,temp);
-fprintf(fp,"%d %d %d %d %d %d\n",user->paintballs,user->hps,user->painted,user->splatters,user->textcolor,temp);
-fprintf(fp,"%d %d %d %d %d %d\n",temp,temp,temp,temp,temp,temp);
-fprintf(fp,"%d %d %d %d %d %d\n",temp,temp,temp,temp,temp,temp);
+fprintf(fp,"%d %d %d %d %d %d\n",user->paintballs,user->hps,user->painted,user->splatters,user->textcolor,user->logons);
+fprintf(fp,"%d %d %d %d %d %d\n",user->stolen,user->affection,user->fight_win,user->fight_lose,user->fight_draw,user->gender);
+fprintf(fp,"%d %d %d %d %d %d\n",user->poker_wins,temp,temp,temp,temp,temp);
 fprintf(fp,"%d %d %d %d %d %d\n",temp,temp,temp,temp,temp,temp);
 fprintf(fp,"%d %d %d %d %d %d\n",temp,temp,temp,temp,temp,temp);
 fprintf(fp,"%d %d %d %d %d %d\n",temp,temp,temp,temp,temp,temp);
@@ -1924,9 +2052,9 @@ if (!(fp=fopen(filename,"r"))) return 0;
 
 fscanf(fp,"%d %d %d %d %d %d\n",&user->ignore,&user->branded,&user->callared,&user->bank_update,&user->hideroom,&user->bdsm_type);
 fscanf(fp,"%d %d %d %d %d %d\n",&user->mailbox_limit,&user->bank_balance,&user->bdsm_life_type,&user->hide_email,&temp5,&temp6);
-fscanf(fp,"%d %d %d %d %d %d\n",&user->paintballs,&user->hps,&user->painted,&user->splatters,&user->textcolor,&temp6);
-fscanf(fp,"%d %d %d %d %d %d\n",&temp1,&temp2,&temp3,&temp4,&temp5,&temp6);
-fscanf(fp,"%d %d %d %d %d %d\n",&temp1,&temp2,&temp3,&temp4,&temp5,&temp6);
+fscanf(fp,"%d %d %d %d %d %d\n",&user->paintballs,&user->hps,&user->painted,&user->splatters,&user->textcolor,&user->logons);
+fscanf(fp,"%d %d %d %d %d %d\n",&user->stolen,&user->affection,&user->fight_win,&user->fight_lose,&user->fight_draw,&user->gender);
+fscanf(fp,"%d %d %d %d %d %d\n",&user->poker_wins,&temp2,&temp3,&temp4,&temp5,&temp6);
 fscanf(fp,"%d %d %d %d %d %d\n",&temp1,&temp2,&temp3,&temp4,&temp5,&temp6);
 fscanf(fp,"%d %d %d %d %d %d\n",&temp1,&temp2,&temp3,&temp4,&temp5,&temp6);
 fscanf(fp,"%d %d %d %d %d %d\n",&temp1,&temp2,&temp3,&temp4,&temp5,&temp6);
@@ -2121,6 +2249,7 @@ RM_OBJECT room;
 RM_OBJECT newroom;
 
 char temp[30],levelname[20],text2[ARR_SIZE];
+int i=0;
 
 /* See if user already connected */
 strcpy(user->ignuser,"NONE");
@@ -2142,7 +2271,7 @@ for(u=user_first;u!=NULL;u=u->next) {
 		else { write_room(NULL,text); }
 		destruct_user(user);
 		num_of_logins--;
-                look(u);
+                word_count=1; look(u);
                 prompt(u);
 		/* Reset the sockets on any clones */
 		for(u2=user_first;u2!=NULL;u2=u2->next) {
@@ -2178,7 +2307,7 @@ if (user->last_room && room!=NULL) {
 	}
 if (user->level==NEW && strcasecmp(newbie_room,"none")) user->room=newroom; /* Force Newbies To newbie Room */
 strcpy(levelname,level_name[user->level]);
-if (user->prompt & FEMALE) strcpy(levelname,level_name_fem[user->level]);
+if (user->gender==GEN_FEMALE) strcpy(levelname,level_name_fem[user->level]);
 sprintf(text2,announce_prompt,SHORTNAME);
 if (!user->hidden) {
      if (user->vis) {
@@ -2199,11 +2328,12 @@ if (!user->hidden) {
           else sprintf(text,"~FMConnecting From Site~FW: ~FT%s:%s\n",user->site,user->site_port);
           write_level(WIZ,3,text,NULL);
           }
-     }
+       }
 else {
     sprintf(text,"\n~CB[ ~FMHidden ~CB]~CW: ~RS%s %s ~RS(~FT%s~RS)\n",user->recap,user->desc,user->room->recap);
     write_level(OWNER,3,text,NULL);
     }
+
 if (user->muzzled & JAILED) {
      sprintf(text,login_arrest1,user->recap);
      write_room_except(room_first,text,user);
@@ -2228,8 +2358,8 @@ if (user->last_site[0]) {
 else sprintf(text,"%s ~RS%s %s ~RS(~FT%s~RS)\n",text2,user->recap,user->desc,user->room->recap);
 write_user(user,text);
 user->last_login=time(0); /* set to now */
-look(user);
-
+word_count=1; look(user);
+user->logons++;
 /* Auto Promote Message */
 
 if ((user->level==NEW && !(user->muzzled & JAILED)) && sys_allow_autopromote) {
@@ -2263,18 +2393,28 @@ num_of_users++;
 num_of_logins--;
 user->login=0;
 reset_hangman(user);
+/* Load Objects If Available */
+i=user_object_store(user->name,0,user);
 
 /* Create user's Room */
 if (ALLOW_USER_ROOMS && (strcasecmp(user->roomname,"None"))) makeroom(user);
 if (!user->bank_update) { update_time_bank(user); }
 if (user->start_script) { startup_script(user); }
+if (!user->gender && user->prompt & FEMALE) { write_user(user,"~CB[~CYM~CYoenuts~CB]~CW: ~CYUpdating Your Gender To Female In New Gender System And Saving Your Userfile.\n"); user->gender=GEN_FEMALE; save_user_details(user,1); }
+if (!user->gender && user->prompt & MALE) { write_user(user,"~CB[~CYM~CYoenuts~CB]~CW: ~CYUpdating Your Gender To Male In New Gender System And Saving Your Userfile.\n"); user->gender=GEN_MALE; save_user_details(user,1); }
+if (!user->gender && user->prompt & NEUTER) { write_user(user,"~CB[~CYM~CYoenuts~CB]~CW: ~CYUpdating Your Gender To Neuter In New Gender System And Saving Your Userfile.\n"); user->gender=GEN_NEUTER; save_user_details(user,1); }
+if (!webwho()) write_user(user,"~CB[~CYM~CYoenuts~CB]~CW: ~CRCould not update the autoamtic webpage who list.\n");
 write_user(user,"\n");
 trivia_banner(user);
-write_user(user,"\n~BP");
+write_user(user,"\n");
 
+load_friends(user);
+friend_alert(user);  /* Alert User Of Friends List People */
+update_spod(user);
+write_user(user,"\n");
 /* Quote Of The Day */
 if (SYS_FORTUNE) {
-sprintf(text,"~CT%s\n~CB-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-\n",center("Your Fortune For Today Is:",78));
+sprintf(text,"~CT%s\n~CB%s\n",center("Your Fortune For Today Is:",78),HORIZ);
 write_user(user,text);
 
 switch(double_fork()) {
@@ -2297,8 +2437,6 @@ else {
   sprintf(text,"~FB> ~RS%s\n",quotes[rand()%MAX_QUOTES]);
   write_user(user,text);
   }
-if (!webwho()) write_room(NULL,"WebWho(): Fail!\n");
-write_user(user,"\n");
 prompt(user);
 }
 
@@ -2308,6 +2446,7 @@ void disconnect_user(UR_OBJECT user)
 RM_OBJECT rm;
 char text2[ARR_SIZE];
 char *temp;
+int bot=0;
 
 rm=user->room;
 if (user->login) {
@@ -2350,17 +2489,19 @@ if (user->login) {
      save_user_details(user,1);
      sprintf(text,fairwell_prompt,TALKERNAME,user->recap);
      write_user(user,text);
-     destruct_user_room(user);
+     update_spod(user);        /* Spod */
+     user->room=room_first;    /* put them in the main room before we */
+     destruct_user_room(user); /* destruct their room or it won't be removed */
      close(user->socket);
      sprintf(text2,exit_prompt,SHORTNAME);
-     if (user->vis && !user->hidden) {
+     if (user->vis && !user->hidden && user->type==USER_TYPE) {
 	sprintf(text,"%s logged out while visible.\n",user->name);
 	write_loginlog(text,1);
         sprintf(text,"%s ~FT%s %s \n",text2,user->recap,user->desc);
         write_level(OWNER+1,2,text,NULL);
 	lastlogin(user,1); /* Record User In Last Login Log */
 	}
-     if (!user->vis && !user->hidden) {
+     if (!user->vis && !user->hidden && user->type==USER_TYPE) {
 		sprintf(text,"%s logged out while invisible.\n",user->name);
 		write_loginlog(text,1);
                 sprintf(text,"%s %s %s~RS ~FT[~CTI~FT] \n",text2,user->recap,user->desc);
@@ -2376,9 +2517,12 @@ num_of_users--;
 
 /* Destroy any clones, and the user's room if possible */
 destroy_user_clones(user);
+/* bot */
+if (user->type==BOT_TYPE) { bot=1; }
 destruct_user(user);
 reset_access(rm);
 destructed=0;
+if (bot) { botuser=NULL; }
 if (!webwho()) return;
 }
 
@@ -2463,7 +2607,7 @@ switch(user->misc_op) {
 	 	 editor(user,inpstr);
 		 return 1;
 	case 6:
-	if (toupper(inpstr[0])=='Y') delete_user(user,1);
+	if (toupper(inpstr[0])=='Y') { delete_user(user,1); }
 	else {  user->misc_op=0;  prompt(user);  }
 	return 1;
 
@@ -2646,8 +2790,8 @@ char *ptr;
 char genderx[4];
 
 strcpy(genderx,"its");
-if (user->prompt & 4) strcpy(genderx,"her");
-if (user->prompt & 8) strcpy(genderx,"his");
+if (user->gender==GEN_FEMALE) strcpy(genderx,"her");
+if (user->gender==GEN_MALE) strcpy(genderx,"his");
 
 if (user->edit_op) {
 	switch(toupper(*inpstr)) {
@@ -3105,9 +3249,15 @@ return pos;
 UR_OBJECT get_user(char *name)
 {
 UR_OBJECT u;
-char tuname[USER_RECAP_LEN+2],  *colour_com_strip();
+char tuname[USER_RECAP_LEN+2],*colour_com_strip();
 
+/* For some odd reason in some cases it returned
+   user_first if the name  was empty */
+if (!name[0]) return NULL;
+
+strtolower(name);
 name[0]=toupper(name[0]);
+
 /* Search for exact name */
 for(u=user_first;u!=NULL;u=u->next) {
 	if (u->login || u->type==CLONE_TYPE) continue;
@@ -3117,15 +3267,17 @@ for(u=user_first;u!=NULL;u=u->next) {
 /* Search for close match name */
 for(u=user_first;u!=NULL;u=u->next) {
 	if (u->login || u->type==CLONE_TYPE) continue;
-	if (strstr(u->name,name))  return u;
+	if (strncasecmp(u->name,name,strlen(name)))  return u;
 	}
 
-/* Search for close match name */
+/* Search for close match recap name */
 for(u=user_first;u!=NULL;u=u->next) {
 	if (u->login || u->type==CLONE_TYPE) continue;
 	strncpy(tuname,colour_com_strip(u->recap),USER_RECAP_LEN);
 	if (!strncasecmp(name,tuname,strlen(tuname))) { return u; }
 	}
+
+/* No Name Found */
 return NULL;
 }
 
@@ -3134,11 +3286,12 @@ UR_OBJECT get_exact_user(char *name)
 {
 UR_OBJECT u;
 
+strtolower(name);
 name[0]=toupper(name[0]);
 /* Search for exact name */
 for(u=user_first;u!=NULL;u=u->next) {
 	if (u->login || u->type==CLONE_TYPE) continue;
-	if (!strcmp(u->name,name))  return u;
+	if (!strcasecmp(u->name,name))  return u;
 	}
 return NULL;
 }
@@ -3150,7 +3303,7 @@ int i;
 
 i=0;
 while(level_name[i][0]!='*') {
-	if (!strcasecmp(level_name[i],name)) return i;
+	if (!strncasecmp(level_name[i],name,strlen(name))) return i;
 	++i;
 	}
 return -1;
@@ -3292,6 +3445,23 @@ while(*s) {
      }
 return cnt;
 }
+
+/* Count nunmber of ^~COLCODE */
+int count_shown_colour_codes(char *str)
+{
+char *s;   
+int cnt;
+   
+s=str; cnt=0;
+while(*s) {
+    if (*s=='^' && *(s+1)=='~') {
+    cnt++;
+    ++s;
+    }
+  ++s;
+  }
+return cnt;
+}   
 
 
 /*** Strip out colour commands from string for when we are sending strings
@@ -3436,7 +3606,7 @@ while(*str) {  *str=tolower(*str);  str++; }
 }
 
 /*** Returns 1 if string is a positive number ***/
-int isnumber(char *str)
+int isanumber(char *str)
 {
 while(*str) if (!isdigit(*str++)) return 0;
 return 1;
@@ -3527,7 +3697,7 @@ user->wrap=0;
 user->mashed=0;
 user->invis=0;
 user->age=0;
-user->whostyle=5;
+user->whostyle=2;
 user->last_room=0;
 user->email[0]='\0';
 user->homepage[0]='\0';
@@ -3581,6 +3751,13 @@ user->owned_by[0]='\0';
 user->bet=0;
 user->win=0;
 user->textcolor=0;
+user->logons=0;
+user->stolen=0;
+user->afftime=(int)time(0);
+user->affection=0;
+user->poker_wins=0;
+for(i=0;i<MAX_FRIENDS;++i) user->friends[i][0]='\0';
+user->hide_email=0;
 return user;
 }
 
@@ -3656,6 +3833,9 @@ for(i=0;i<MAX_LINKS;++i) {
 	room->link_label[i][0]='\0';  room->link[i]=NULL;
 	}
 for(i=0;i<REVIEW_LINES;++i) room->revbuff[i][0]='\0';
+room->guarddog=0;
+room->guarddog_name[0]='\0';
+room->guarddog_phrase[0]='\0';
 return room;
 }
 
@@ -3738,7 +3918,7 @@ switch(com_num) {
                           }
                      quit_user(user);
                      break;
-     case LOOK     : cls(user); look(user);  break;
+     case LOOK     : look(user);  break;
      case MODE     : toggle_mode(user);  break;
      case SAY      : if (word_count<2) {
                           write_user(user,"What is it you want to say?\n");
@@ -3749,7 +3929,7 @@ switch(com_num) {
      case SHOUT    : shout(user,inpstr);  break;
      case TICTAC   : tictac(user,inpstr); break;
      case FINGER   : finger_host(user); break;
-     case POKER    : sprintf(filename,"%s/%s.%s",SCREENFILES,POKERFILE,fileext[user->high_ascii]);
+     case POKER    : sprintf(filename,"%s/%s",SCREENFILES,POKERFILE);
 		     switch(more(user,user->socket,filename)) {
                           case 0: write_user(user,"Sorry, but I was unable to find the rules to poker.\n"); break;
 		          case 1: user->misc_op=2;
@@ -3772,8 +3952,8 @@ switch(com_num) {
      case SEEPO    : see_poker(user); break;
      case DISCPO   : disc_poker(user); break;
      case HANDPO   : hand_poker(user); break;
-     case CHIPSPO  : chips_po(user); break;
-     case RANKPO   : rank_po(user); break;
+     case FRIENDS  : friends(user); break;
+     case RANKPO   : do_poker_spod(user,inpstr); break;
      /* End Of Poker */
      case TELL     : sendtell(user,inpstr);   break;
      case EMOTE    : emote(user,inpstr);  break;
@@ -4002,7 +4182,7 @@ switch(com_num) {
      case BACKUP     : force_backup(user); break;
      case HANGMAN    : play_hangman(user); break;
      case GUESS      : guess_hangman(user); break;
-     case GIVEPOCHIPS: give_chips_po(user); break;
+     case LOOKPETS   : look_pets(user); break;
      case TPROMOTE   : tpromote(user); break;
      case SOCIALS    : list_socials(user); break;
      case ICQPAGE    : icqpage(user,inpstr); break;
@@ -4022,7 +4202,7 @@ switch(com_num) {
      case TRIVWIN    : trivia_win(user); break;
      case TRIVQUEST  : trivia_question(user,inpstr); break;
      case TRIVANSWER : trivia_answer(user,inpstr); break;
-     case LISTKEYS   : list_keys(user); break;
+     case KEYS       : keys(user); break;
      case ROOMCAP    : room_recap(user,inpstr); break;
      case DICTIONARY : dictionary(user,inpstr); break;
      case STEAL      : steal_user_money(user); break;
@@ -4041,6 +4221,40 @@ switch(com_num) {
      case CMUTTER    : mutrevclr(user); break;
      case TEXTCOLOR  : text_color(user); break;
      case MAKEUPAGES : makeuserpages(user); break;
+     case CONNECTFOUR: connect_four(user); break;
+     case TAKECASH   : takecash(user); break;
+     /* Object Commands */
+     case USE        : use(user);  break;
+     case OBJECTS    : objects(user,0);     break;
+     case ROOMOBJ    : handle_room_object(user);  break;
+     case USEROBJ    : handle_user_object(user);  break;   
+     case RLOADOBJ   : reload_object_descriptions(user);  break;
+     case INSPECT    : inspect_object(user);  break;
+     case GET        : get_object_from_room(user);  break;
+     case DROP       : drop_object_in_room(user);  break;
+     case TRASH      : trash_object(user);  break;
+     case GIVE       : give_object(user);  break;
+     case DRINK      : use(user);  break;
+     case EAT        : use(user);  break;
+     case WEAR       : use(user);  break;
+     case OBJINFO    : object_info(user); break;
+     /* End Of Object Commands */
+     case LOGINBOT   : create_bot(); break;
+     case WARNUSER   : warn_user(user,inpstr); break;
+     case GUARDDOG   : set_guarddog(user,inpstr); break;
+     case INFOFILES  : info_files(user); break;
+     /* Spod List Commands */
+     case SPOD       : do_spod(user,inpstr); break;
+     case TSPOD      : total_spod(user,inpstr); break;
+     case RESPOD     : reinitialize_rank_lists(user); break;
+     case RICHLIST   : do_rich(user,inpstr); break;
+     case THIEFLIST  : do_thief(user,inpstr); break;
+     case WTELL      : wizshout(user,inpstr);  break;
+     case AFFLIST    : do_afflist(user,inpstr); break;
+     case TICLIST    : do_ticlist(user,inpstr); break;
+     case FIGHTLIST  : do_fightlist(user,inpstr); break;
+     case ACCEPT     : accept_invite(user); break;
+     case FRIENDTELL : friend_tell(user,inpstr); break;
      default         : write_user(user,"~CRERROR: ~FMCommand not executed in ~FTexec_com~FB()\n");
      }
 }
@@ -4070,6 +4284,7 @@ char type[12];
 char type2[22];
 char *name;
 char text2[(ARR_SIZE*2)+1];
+char text3[(ARR_SIZE*2)+1];
 int question=0;
 
 if (user->muzzled & JAILED) {
@@ -4084,7 +4299,7 @@ if (user->muzzled & 1) {
 if (word_count<2 && user->command_mode) {
      write_user(user,"Usage: say <message>\n");
      return;
-	}
+     }
 strcpy(type,"say");
 if (inpstr[strlen(inpstr)-4]=='?') { question=1; }
 switch(inpstr[strlen(inpstr)-1]) {
@@ -4113,8 +4328,12 @@ else {
 	strcpy(type2,type);
 	}
 
+/* bot -- do this before we make the user drunk so he understands their slurs*/
+strncpy(text3,inpstr,ARR_SIZE*2);
+if (user->drunk>3) { convert2_drunk(inpstr); }
+
 if (user->type==CLONE_TYPE) {
-     sprintf(text,say_style,user->recap,type,textcolor[user->textcolor],inpstr);
+        sprintf(text,say_style,user->recap,type,textcolor[user->textcolor],inpstr);
 	write_room(user->room,text);
 	record(user->room,text);
 	return;
@@ -4140,6 +4359,7 @@ if (strcasecmp(user->predesc,"none")) sprintf(text2,"%s %s",user->predesc,text);
 else sprintf(text2,"%s",text);
 write_room(user->room,text2);
 record(user->room,text);
+if (user!=botuser) { bot_trigger(user,text3); }
 }
 
 /*** Shout something ***/
@@ -4406,6 +4626,7 @@ void emote(UR_OBJECT user,char *inpstr)
 		write_user(user,"Usage: .emote <emotion>\n");
 		return;
 	}
+	if (user->drunk>3) { convert2_drunk(inpstr); }
 	if (user->type==CLONE_TYPE)
 	{
 		sprintf(text,"%s %s%s\n",user->recap,textcolor[user->textcolor],inpstr);
@@ -4486,6 +4707,7 @@ void emote(UR_OBJECT user,char *inpstr)
 		else sprintf(text2,"%s",text);
 		write_room(user->room,text2);
 		record(user->room,text2);
+		bot_trigger(user,text2);
 		return;
 	}
 }
@@ -4647,7 +4869,7 @@ void echo(UR_OBJECT user,char *inpstr)
 {
 RM_OBJECT rm;
 UR_OBJECT u;
-char *temp, *colour_com_strip();
+char temp[USER_RECAP_LEN+1], *colour_com_strip(), *name, filename[80];
 
 if (user->muzzled & JAILED) {
 	sprintf(text,"~FT%% ~FMYou cannot use the ~FY\"~FG%s~FY\" ~FMcommand...\n",command[com_num]);
@@ -4660,16 +4882,26 @@ if (user->muzzled & 1) {
 if (!inpstr[0]) {
      write_user(user,"Usage:  .echo <message>\n");  return;
 	}
+/* We Need To Find Out If Word[0] is a username (without colours:P) */
+
+u=NULL;
 word_count=wordfind(inpstr);
-strtolower(word[0]);
-word[0][0]=toupper(word[0][0]);
-temp=colour_com_strip(word[0]);
+name=colour_com_strip(word[0]);
+strncpy(temp,name,USER_RECAP_LEN);
+strtolower(temp);
+temp[0]=toupper(temp[0]);
 u=get_user(temp);
+sprintf(filename,"%s/%s.D",USERFILES,temp);
 
 if (u) {
         write_user(user,"You can not echo user's names!\n");
 	return;
 	}
+if (file_exists(filename)) {
+        write_user(user,"You can not echo offline user's names!\n");
+	return;
+	}
+
 rm=user->room;
 if (rm->access==FIXED_PUBLIC && ban_swearing && contains_swearing(inpstr)) {
 	write_user(user,noswearing);  return;
@@ -4966,8 +5198,8 @@ char *name;
 char gender[4];
 
 strcpy(gender,"its");
-if (user->prompt & 4) strcpy(gender,"her");
-if (user->prompt & 8) strcpy(gender,"his");
+if (user->gender==GEN_FEMALE) strcpy(gender,"her");
+if (user->gender==GEN_MALE) strcpy(gender,"his");
 
 if (user->muzzled & JAILED) {
 	sprintf(text,"~FT%% ~FMYou cannot use the ~FY\"~FG%s~FY\" ~FMcommand...\n",command[com_num]);
@@ -5160,11 +5392,11 @@ if (user->muzzled & 1) {
 	}
 if (word_count<2) {
      strcpy(usergender,"its");
-     if (user->prompt & 4) strcpy(usergender,"her");
-     if (user->prompt & 8) strcpy(usergender,"his");
+     if (user->gender==GEN_FEMALE) strcpy(usergender,"her");
+     if (user->gender==GEN_MALE) strcpy(usergender,"his");
      strcpy(usergenderx,"it");
-     if (user->prompt & 4) strcpy(usergenderx,"her");
-     if (user->prompt & 8) strcpy(usergenderx,"him");
+     if (user->gender==GEN_FEMALE) strcpy(usergenderx,"her");
+     if (user->gender==GEN_MALE) strcpy(usergenderx,"him");
      sprintf(text,"~CM%s wraps %s arms around %sself in an attempt at a one person hug.\n",name,usergender,usergenderx);
      write_room(user->room,text);
      record(user->room,text);
@@ -5176,10 +5408,12 @@ if (!strcmp(word[1],"all")) {
 	for(u=user_first;u!=NULL;u=u->next) {
 	    if (u->type==CLONE_TYPE) continue;
 	    if (u->hidden) continue;
+	    /* Update Affection */
+	    update_affection(u);
 	    if (!(u->room==NULL)) {
 		strcpy(gender,"it");
-		if (u->prompt & 4) strcpy(gender,"her");
-		if (u->prompt & 8) strcpy(gender,"him");
+		if (u->gender==GEN_FEMALE) strcpy(gender,"her");
+		if (u->gender==GEN_MALE) strcpy(gender,"him");
 		if (u!=user) {
 		if (u->vis) rname=u->recap; else rname=invisname;
 		if (user->muzzled & FROZEN) {
@@ -5218,10 +5452,14 @@ if (!(u=get_user(word[1]))) {
 	write_user(user,notloggedon);  return;
 	}
 if ((u->hidden && (!(u->vis))) && user->level<OWNER) { write_user(user,notloggedon); return; }
+
+/* Update Affection */
+update_affection(u);
+
 rm=user->room;
 strcpy(gender,"it");
-if (u->prompt & 4) strcpy(gender,"her");
-if (u->prompt & 8) strcpy(gender,"him");
+if (u->gender==GEN_FEMALE) strcpy(gender,"her");
+if (u->gender==GEN_MALE) strcpy(gender,"him");
 if (user->vis) name=user->recap; else name=invisname;
 if (u->vis) rname=u->recap; else rname=invisname;
 if (u->room==user->room) {
@@ -5295,8 +5533,8 @@ char gender[4];
 char genderx[4];
 
 strcpy(genderx,"it");
-if (user->prompt & 4) strcpy(genderx,"her");
-if (user->prompt & 8) strcpy(genderx,"him");
+if (user->gender==GEN_FEMALE) strcpy(genderx,"her");
+if (user->gender==GEN_MALE) strcpy(genderx,"him");
 
 if (user->vis) name=user->recap; else name=invisname;
 if (user->muzzled & JAILED) {
@@ -5326,9 +5564,12 @@ rm=user->room;
 if (user->vis) name=user->recap; else name=invisname;
 if (u->vis) rname=u->recap; else rname=invisname;
 
+/* Update Affection */
+update_affection(u);
+
 strcpy(gender,"it");
-if (u->prompt & 4) strcpy(gender,"her");
-if (u->prompt & 8) strcpy(gender,"him");
+if (u->gender==GEN_FEMALE) strcpy(gender,"her");
+if (u->gender==GEN_MALE) strcpy(gender,"him");
 
 if (user->muzzled & FROZEN) {
      if (u->room!=user->room) {
@@ -5366,8 +5607,8 @@ char *name;
 char gender[4];
 
 strcpy(gender,"its");
-if (user->prompt & 4) strcpy(gender,"her");
-if (user->prompt & 8) strcpy(gender,"his");
+if (user->gender==GEN_FEMALE) strcpy(gender,"her");
+if (user->gender==GEN_MALE) strcpy(gender,"his");
 
 if (user->vis) name=user->recap; else name=invisname;
 if (user->muzzled & JAILED) {
@@ -5399,8 +5640,8 @@ char gender[4];
 char genderx[4];
 
 strcpy(genderx,"its");
-if (user->prompt & 4) strcpy(genderx,"her");
-if (user->prompt & 8) strcpy(genderx,"his");
+if (user->gender==GEN_FEMALE) strcpy(genderx,"her");
+if (user->gender==GEN_MALE) strcpy(genderx,"his");
 
 if (user->vis) name=user->recap; else name=invisname;
 if (user->muzzled & JAILED) {
@@ -5426,12 +5667,14 @@ if (!(u=get_user(word[1]))) {
 	write_user(user,notloggedon);  return;
 	}
 if ((u->hidden && (!(u->vis))) && user->level<OWNER) { write_user(user,notloggedon); return; }
+/* Update Affection */
+update_affection(u);
 rm=user->room;
 if (user->vis && !user->hidden) name=user->recap; else name=invisname;
 if (u->vis) rname=u->recap; else rname=invisname;
 strcpy(gender,"its");
-if (u->prompt & 4) strcpy(gender,"her");
-if (u->prompt & 8) strcpy(gender,"his");
+if (u->gender==GEN_FEMALE) strcpy(gender,"her");
+if (u->gender==GEN_MALE) strcpy(gender,"his");
 if (user->muzzled & FROZEN) {
      sprintf(text,"~CM%s passionately licks %s all over %s body...\n",name,rname,gender);
 	write_user(user,text);
@@ -5459,8 +5702,8 @@ char *name,*rname;
 char genderx[4];
 
 strcpy(genderx,"it");
-if (user->prompt & 4) strcpy(genderx,"her");
-if (user->prompt & 8) strcpy(genderx,"him");
+if (user->gender==GEN_FEMALE) strcpy(genderx,"her");
+if (user->gender==GEN_MALE) strcpy(genderx,"him");
 
 if (user->vis) name=user->recap; else name=invisname;
 if (user->muzzled & JAILED) {
@@ -5517,8 +5760,8 @@ char genderx[4];
 
 if (user->vis) name=user->recap; else name=invisname;
 strcpy(genderx,"its");
-if (user->prompt & 4) strcpy(genderx,"her");
-if (user->prompt & 8) strcpy(genderx,"his");
+if (user->gender==GEN_FEMALE) strcpy(genderx,"her");
+if (user->gender==GEN_MALE) strcpy(genderx,"his");
 
 if (user->muzzled & JAILED) {
 	sprintf(text,"~FT%% ~FMYou cannot use the ~FY\"~FG%s~FY\" ~FMcommand...\n",command[com_num]);
@@ -5543,11 +5786,13 @@ if (!(u=get_user(word[1]))) {
 	write_user(user,notloggedon);  return;
 	}
 if ((u->hidden && (!(u->vis))) && user->level<OWNER) { write_user(user,notloggedon); return; }
+/* Update Affection */
+update_affection(u);
 rm=user->room;
 if (u->vis) rname=u->recap; else rname=invisname;
 strcpy(gender,"it");
-if (u->prompt & 4) strcpy(gender,"her");
-if (u->prompt & 8) strcpy(gender,"him");
+if (u->gender==GEN_FEMALE) strcpy(gender,"her");
+if (u->gender==GEN_MALE) strcpy(gender,"him");
 if (user->muzzled & FROZEN) {
      sprintf(text,"~CR%s~FG gently parts ~FM%s's~FG lips with %s tongue, and initiates a loving french kiss with %s.~RS\n",name,rname,genderx,gender);
 	write_user(user,text);
@@ -5599,20 +5844,22 @@ if (!(u=get_user(word[1]))) {
         return;
 	}
 if ((u->hidden && (!(u->vis))) && user->level<OWNER) { write_user(user,notloggedon); return; }
+/* Update Affection */
+update_affection(u);
 rm=user->room;
 if (user->vis) name=user->recap; else name=invisname;
 strcpy(gender,"it");
-if (u->prompt & 4) strcpy(gender,"her");
-if (u->prompt & 8) strcpy(gender,"him");
+if (u->gender==GEN_FEMALE) strcpy(gender,"her");
+if (u->gender==GEN_MALE) strcpy(gender,"him");
 strcpy(genderx,"it");
-if (u->prompt & 4) strcpy(genderx,"she");
-if (u->prompt & 8) strcpy(genderx,"he");
+if (u->gender==GEN_FEMALE) strcpy(genderx,"she");
+if (u->gender==GEN_MALE) strcpy(genderx,"he");
 strcpy(genderz,"it");
-if (user->prompt & 4) strcpy(genderz,"she");
-if (user->prompt & 8) strcpy(genderz,"he");
+if (user->gender==GEN_FEMALE) strcpy(genderz,"she");
+if (user->gender==GEN_MALE) strcpy(genderz,"he");
 strcpy(gendery,"It");
-if (u->prompt & 4) strcpy(gendery,"Girl");
-if (u->prompt & 8) strcpy(gendery,"Boy");
+if (u->gender==GEN_FEMALE) strcpy(gendery,"Girl");
+if (u->gender==GEN_MALE) strcpy(gendery,"Boy");
 if (user->muzzled & FROZEN) {
         sprintf(text,"~CTGiving %s Netsex.  ~FB<< Use ~FWnetsextwo~FB for more! >>\n",u->recap);
 	write_user(user,text);
@@ -5686,17 +5933,19 @@ if (!(u=get_user(word[1]))) {
         return;
 	}
 if ((u->hidden && (!(u->vis))) && user->level<OWNER) { write_user(user,notloggedon); return; }
+/* Update Affection */
+update_affection(u);
 rm=user->room;
 if (user->vis) name=user->recap; else name=invisname;
 strcpy(gender,"its");
-if (user->prompt & 4) strcpy(gender,"her");
-if (user->prompt & 8) strcpy(gender,"his");
+if (user->gender==GEN_FEMALE) strcpy(gender,"her");
+if (user->gender==GEN_MALE) strcpy(gender,"his");
 strcpy(genderx,"it");
-if (u->prompt & 4) strcpy(genderx,"she");
-if (u->prompt & 8) strcpy(genderx,"he");
+if (u->gender==GEN_FEMALE) strcpy(genderx,"she");
+if (u->gender==GEN_MALE) strcpy(genderx,"he");
 strcpy(gendery,"It");
-if (u->prompt & 4) strcpy(gendery,"Girl");
-if (u->prompt & 8) strcpy(gendery,"Boy");
+if (u->gender==GEN_FEMALE) strcpy(gendery,"Girl");
+if (u->gender==GEN_MALE) strcpy(gendery,"Boy");
 if (user->muzzled & FROZEN) {
         sprintf(text,"~CTGiving %s More Netsex.  ~FB<< ~FYThe rest is upto you! ;) ~FB>>\n",u->recap);
 	write_user(user,text);
@@ -5834,6 +6083,7 @@ if (!(show_screen(user))) {
         write_user(user,"  ~CB� ~CTansi      ~CB� ~CGSet High Ascii on/off/test           ~CB�\n");
         write_user(user,"  ~CB� ~CTbirth     ~CB� ~CGSet Your Birthdate                   ~CB�\n");
         write_user(user,"  ~CB� ~CTemail     ~CB� ~CGSet Your Email Address               ~CB�\n");
+        write_user(user,"  ~CB� ~CThidemail  ~CB� ~CGHide Your Email From  Users          ~CB�\n");
         write_user(user,"  ~CB� ~CTforward   ~CB� ~CGSet Email Forwarding On/Off          ~CB�\n");
         write_user(user,"  ~CB� ~CTgender    ~CB� ~CGSet Your Gender to m/f               ~CB�\n");
         write_user(user,"  ~CB� ~CThomepage  ~CB� ~CGSet Your Homepage URL                ~CB�\n");
@@ -5861,6 +6111,7 @@ if (!(show_screen(user))) {
         write_user(user,"  ~CB| ~CTbirth     ~CB| ~FGSet Your Birthdate                   ~CB|\n");
         write_user(user,"  ~CB| ~CTcaste     ~CB| ~FGSet Your BDSM Caste D/s/S/V          ~CB|\n");
         write_user(user,"  ~CB| ~CTemail     ~CB| ~FGSet Your Email Address               ~CB|\n");
+        write_user(user,"  ~CB| ~CThidemail  ~CB| ~FGHide Your Email From Users           ~CB|\n");
         write_user(user,"  ~CB| ~CTfakeage   ~CB| ~FGSet Your Fake Age Phrase             ~CB|\n");
         write_user(user,"  ~CB| ~CTforward   ~CB| ~FGSet Email Forwarding On/Off          ~CB|\n");
         write_user(user,"  ~CB| ~CTgender    ~CB| ~FGSet Your Gender To m/f               ~CB|\n");
@@ -5976,7 +6227,7 @@ if (!strcasecmp(word[1],"ansi")) {
        	  }
      }
 if (!strcasecmp(word[1],"age")) {
-	if (word_count<3 || !isnumber(word[2])) {
+	if (word_count<3 || !isanumber(word[2])) {
                 write_user(user,"\nUsage: set age <1-1000>\n");
 		return;
 		}
@@ -5996,7 +6247,7 @@ if (!strcasecmp(word[1],"age")) {
 	return;
 	}
 if (!strcasecmp(word[1],"who")) {
-	if (word_count<3 || !isnumber(word[2])) {
+	if (word_count<3 || !isanumber(word[2])) {
           sprintf(text,"\nUsage: set who <1-%d>\n",MAX_WHOS);
           write_user(user,text);
 	  who(user,0);
@@ -6038,7 +6289,8 @@ if (!strcasecmp(word[1],"homepage") || !strcasecmp(word[1],"webpage")) {
                 write_user(user,"\nUsage: set homepage <homepage url>\n");
 		return;
 		}
-        strncpy(user->homepage,word[2],URL_LEN);
+	inpstr=remove_first(inpstr);
+        strncpy(user->homepage,inpstr,URL_LEN);
         sprintf(text,"\n~CMYou set your homepage to~FR:~RS %s\n",user->homepage);
 	write_user(user,text);
 	return;
@@ -6132,30 +6384,30 @@ if (!strcasecmp(word[1],"gender")) {
 		return;
 		}
 	if (!strncasecmp(word[2],"m",1)) {
-		if (user->prompt & FEMALE) {
+		if (user->gender==GEN_FEMALE) {
                 write_user(user,"~CRYour gender is already set to Female!\n~CMTalk to an Admin if you need it changed!\n");
 		return;
 		}
-		if (user->prompt & MALE) {
+		if (user->gender==GEN_MALE) {
                 write_user(user,"~CRYour gender is already set to Male!\n~CMTalk to an Admin if you need it changed!\n");
 		return;
 		}
 		write_user(user,"Your gender has been set to Male\n");
-		user->prompt+=MALE;
+		user->gender=GEN_MALE;
 		autopromote(user);
 		return;
 		}
 	if (!strncasecmp(word[2],"f",1)) {
-		if (user->prompt & MALE) {
+		if (user->gender==GEN_MALE) {
                 write_user(user,"~CRYour gender is already set to Male!\n~CMTalk to an Admin if you need it changed!\n");
 		return;
 		}
-		if (user->prompt & FEMALE) {
+		if (user->gender==GEN_FEMALE) {
                 write_user(user,"~CRYour gender is already set to Female!\n~CMTalk to an Admin if you need it changed!\n");
 		return;
 		}
 		write_user(user,"Your gender has been set to Female\n");
-		user->prompt+=FEMALE;
+		user->gender=GEN_FEMALE;
 		autopromote(user);
 		return;
 		}
@@ -6178,19 +6430,19 @@ if (!strcasecmp(word[1],"lastroom")) {
           return;
          }
      }
-if (!strcasecmp(word[1],"confirm")) {
+if (!strcasecmp(word[1],"hidemail")) {
 	if (word_count<3) {
-                write_user(user,"\nUsage: set confirm on/off\n");
+                write_user(user,"\nUsage: set hidemail on/off\n");
 		return;
 		}
      if (!strncasecmp(word[2],"on",2)) {
-          user->confirm=1;
-          write_user(user,"\n~CGYou will be asked about certain actions, i.e. Quitting!\n\n");
+          user->hide_email=1;
+          write_user(user,"\n~CGNobody but staff will see your email address now.\n\n");
           return;
           }
      if (!strncasecmp(word[2],"off",2)) {
-          user->confirm=0;
-          write_user(user,"\n~CGYou will not be asked about certain actions, i.e. Quitting!\n\n");
+          user->hide_email=0;
+          write_user(user,"\n~CGYour email address will now be visible to everyone.\n\n");
           return;
          }
      }
@@ -6260,7 +6512,7 @@ if (!strcasecmp(word[1],"hideroom")) {
 
 /* Set User's BDSM Caste */
 if (!strcasecmp(word[1],"caste")) {
-	if (!word[2][0] || !isnumber(word[2]) || !strcasecmp(word[2],"list")) {
+	if (!word[2][0] || !isanumber(word[2]) || !strcasecmp(word[2],"list")) {
 		write_user(user,"\n~CY~BM ~ULThe Current Caste Are As Follows:~RS~BM ~RS\n\n");
 		for(tint=0;tint<MAX_BDSM_TYPES;tint++) {
 			sprintf(text,"~CG%2d~RS~FG... ~FY%-20s ~FW: ~FT%s\n",(tint+1),bdsm_types[tint],bdsm_type_desc[tint]);
@@ -6280,7 +6532,7 @@ if (!strcasecmp(word[1],"caste")) {
 
 /* Set User's BDSM Lifestyle */
 if (!strcasecmp(word[1],"life")) {
-	if (!word[2][0] || !isnumber(word[2]) || !strcasecmp(word[2],"list")) {
+	if (!word[2][0] || !isanumber(word[2]) || !strcasecmp(word[2],"list")) {
 		write_user(user,"\n~CY~BM ~ULThe Current Lifestyle Settings Are:~RS~BM ~RS\n\n");
 		for(tint=0;tint<MAX_BDSM_LIFE_TYPES;tint++) {
 			sprintf(text,"~CG%2d~RS~FG... ~FY%-20s ~FW: ~FT%s\n",(tint+1),bdsm_life_types[tint],bdsm_life_type_desc[tint]);
@@ -6353,8 +6605,54 @@ char filename[80],line[513];
 char null[1],*ptr;
 char *afk="~FB[~FRA-F-K~FB]";
 char *profsub();
-int i,exits,users,cnt;
+int i,exits,users,cnt,y=0;
 
+/* Object Stuff */
+if (word_count==2) {
+if (!(u=get_user(word[1]))) {
+  write_user(user,notloggedon);  return;
+  }
+i=0;
+if (user->room!=u->room) {
+        sprintf(text,"You do not see %s~RS in this room.\n",u->recap);
+        write_user(user,text);
+        return;  
+        }
+if (u!=user) {
+	sprintf(text,"%s looks at %s.\n",user->recap,u->recap);
+	write_room_except(user->room,text,user);
+	sprintf(text,"\n~CT%s ~CTis carrying the following items:~RS\n\n",u->recap);
+	write_user(user,text);
+	y=1;
+	}
+else { 
+	write_user(user,"~CB.-=-=-=-=-=-=-=-=-=-.\n");
+	write_user(user,"~CB| ~CYYou are carrying:~CB |\n");
+	write_user(user,"~CB`-=-=-=-=-=-=-=-=-=-'\n\n");
+	}
+
+while(u->objects[i])
+{   
+        if (u->object_count[i]==1) {
+                sprintf(text," %s~RS\n",u->objects[i]->name);
+                write_user(user,text);
+                }
+        else {
+                sprintf(text," %s~RS ~CM(~CT%d~CM)\n",u->objects[i]->name,u->object_count[i]);
+                write_user(user,text);
+                }
+   i++;
+   }
+   if (i==0) {
+	if (y) { write_user(user," ~CTThey are carrying nothing on them.~RS\n"); }
+	else { write_user(user," ~CTYou are carrying nothing on you.~RS\n"); }
+	}
+   write_user(user,"\n");
+   return;
+   }
+
+/* End Object Stuff */
+cls(user);
 rm=user->room;
 sprintf(filename,"%s/%s.R",DATAFILES,rm->name);
 if (user->high_ascii) {
@@ -6428,6 +6726,24 @@ for(u=user_first;u!=NULL;u=u->next) {
 	}
 if (!users) write_user(user,no_people_here_prompt);
 write_user(user,"\n");
+
+/* Objects - List Objects */
+write_user(user,"~CTItems in this room:\n\n");
+i=0;
+while(rm->objects[i]) {
+        if (rm->object_count[i]==1) {
+	        sprintf(text," %s\n",rm->objects[i]->name);
+		write_user(user,text);
+        	}
+        else {
+		sprintf(text," %s ~CM(~CT%d~CM)\n",rm->objects[i]->name,rm->object_count[i]);
+	        write_user(user,text);
+	        }
+	  i++;
+	}  
+if (i) { write_user(user,"\n"); }
+if (!i) { write_user(user," ~CMThere are no items here in this room.\n\n"); }
+write_user(user,"~CTTo see if there are any pets here, type ~CM.pets~CT.\n\n");
 }
 
 /*** Move to another room ***/
@@ -6562,6 +6878,7 @@ if (teleport==2) {
 SKIP:
 user->room=rm;
 cls(user);
+word_count=1; 
 look(user);
 reset_access(old_room);
 }
@@ -6825,6 +7142,13 @@ if (rm->access & PERSONAL) {
 	write_user(user,text);
 	sprintf(text,room_knock_prompt,user->recap);
 	write_room(rm,text);
+	/* Guard Dog */
+	if (rm->guarddog) {
+		sprintf(text,"~FGSuddenly, %s~FG jumps up and runs over to the door barking at %s~FG knocking on the door.\n",rm->guarddog_name,user->recap);
+		write_room(rm,text);
+		sprintf(text,"You hear %s~RS's guard dog %s~RS barking at you, as you knock on the door of the %s~RS.\n",rm->owner,rm->guarddog_name,rm->recap);
+		write_user(user,text);
+		}
 	return;
 	}
 for(i=0;i<MAX_LINKS;++i) if (user->room->link[i]==rm) goto GOT_IT;
@@ -6836,7 +7160,6 @@ GOT_IT:
 if (!(rm->access & PRIVATE)) {
         sprintf(text,"~CGThe ~RS%s~CG is currently public, try .go, or .join a user there!\n",rm->recap);
 	write_user(user,text);
-	return;
 	}
 sprintf(text,user_knock_prompt,rm->recap);
 write_user(user,text);
@@ -6863,14 +7186,9 @@ if (word_count<2) {
 	return;
 	}
 rm=user->room;
-if (!(rm->access & PERSONAL)) {
-	if (!(rm->access & PRIVATE)) {
-                write_user(user,"~CRThis room is public anyways!~RS\n~CTJust ask them to join you!\n");
-		return;
-		}
-	}
 if (!(u=get_user(word[1]))) {
-	write_user(user,notloggedon);  return;
+	write_user(user,notloggedon);
+	return;
 	}
 if (u==user) {
         write_user(user,"~CRDoes mental insanity run in your family?\n");
@@ -6888,6 +7206,8 @@ if (u->room==rm) {
 if (u->invite_room==rm) {
         sprintf(text,"%s~CR has already been invited into here.\n",u->recap);
 	write_user(user,text);
+	sprintf(text,"~CY%s~CY re-invites you into the %s room.\n~CRType .accept to join %s.\n",user->recap,user->room->recap,himher[user->gender]);
+	write_user(u,text);
 	return;
 	}
 if (rm->access & PERSONAL) {
@@ -6897,11 +7217,21 @@ if (rm->access & PERSONAL) {
 		return;
 		}
 	}
+if (!(rm->access & PERSONAL)) {
+	if (!(rm->access & PRIVATE)) {
+		sprintf(text,"~CRThis room is a public room, inviting %s anyways.\n",himher[u->gender]);
+                write_user(user,text);
+		sprintf(text,"~CY%s~CY invites you into the %s room.\n~CRType .accept to join %s.\n",user->recap,user->room->recap,himher[user->gender]);
+		write_user(u,text);
+		u->invite_room=user->room;
+		return;
+		}
+	}
 sprintf(text,"~CGYou invite ~RS%s~CG in.\n",u->recap);
 write_user(user,text);
 if (user->vis) name=user->recap; else name=invisname;
-if (!user->hidden) sprintf(text,"%s~CG has invited you into the~RS %s~CG.\n",name,rm->recap);
-else sprintf(text,"~CMAn unseen entity has invited you into ~RS%s~CG.\n",rm->recap);
+if (!user->hidden) sprintf(text,"%s~CG has invited you into the~RS %s~CY,~CG use ~CM.accept ~CGto join~CY.\n",name,rm->recap);
+else sprintf(text,"~CMAn unseen entity has invited you into ~RS%s~CY,~CG use ~CM.accept ~CGto join~CY.\n",rm->recap);
 write_user(u,text);
 if (user->vis) name=user->recap; else name=invisname;
 sprintf(text,"%s~CB has invited ~RS%s ~CBto join you.\n",name,u->recap);
@@ -7027,13 +7357,20 @@ if (rm==user->room) {
 if ((rm->access & PERSONAL) && has_key(rm,user)) {
 	write_user(user,"~CGYou place the key in the lock and turn... CLICK!  The door is unlocked.\n~CGYou enter the room.\n");
 	}
-else if ((rm->access & PERSONAL) && (!(user->invite_room==rm))) {
+else if ((rm->access & PERSONAL) && (!(user->invite_room==rm)) && strcasecmp(rm->owner,user->name)) {
 	sprintf(text,"~CR%s ~CRis in a personal room, and you are not the owner, nor do you have a key!\n",u->name);
 	write_user(user,text);
         sprintf(text,user_join_request);
 	write_user(user,text);
         sprintf(text,join_request,user->recap);
 	write_room(u->room,text);
+	/* Guard Dog */
+	if (rm->guarddog) {
+		sprintf(text,"~FGSuddenly, %s~FG jumps up and runs over to the door barking at %s~FG knocking on the door.\n",rm->guarddog_name,user->recap);
+		write_room(rm,text);
+		sprintf(text,"You hear %s~RS's guard dog %s~RS barking at you, as you knock on the door of the %s~RS.\n",rm->owner,rm->guarddog_name,rm->recap);
+		write_user(user,text);
+		}
 	return;
 	}
 if (rm->access & PRIVATE && (!(user->invite_room==rm))) {
@@ -7085,8 +7422,8 @@ void listening(UR_OBJECT user)
 UR_OBJECT u;
 
 if (word_count<2) {
-	if (user->level>=WIZ) write_user(user,"Usage: listen <all/tells/other/shout/log/beep/bcast/most/wiz/atmos> or <user name>\n");
-	else write_user(user,"Usage: listen <all/tells/other/shout/log/beep/bcast/most/atmos> or <user name>\n");
+	if (user->level>=WIZ) write_user(user,"Usage: listen <all/tells/other/shout/log/beep/bcast/most/wiz/atmos/pics> or <user name>\n");
+	else write_user(user,"Usage: listen <all/tells/other/shout/log/beep/bcast/most/atmos/pics> or <user name>\n");
 	return;
 	}
 if (strstr(word[1],"all")) {
@@ -7156,12 +7493,12 @@ if (strstr(word[1],"bcast")) {
         write_user(user,"~CRYou were already listening to brodcast mesages.\n");
 	return;
 	}
-if (strstr(word[1],"picture") && (user->ignore & ROOM_PICTURE)) {
+if (strstr(word[1],"pics") && (user->ignore & ROOM_PICTURE)) {
         write_user(user,"~CGYou are listening to pictures.\n");
 	user->ignore-=ROOM_PICTURE;
 	return;
 	}
-if (strstr(word[1],"picture")) {
+if (strstr(word[1],"pics")) {
         write_user(user,"~CRYou were already listening to pictures.\n");
 	return;
 	}
@@ -7194,8 +7531,8 @@ if (strstr(word[1],"wiz")) {
 	}
 if (!(u=get_user(word[1]))) {
 	write_user(user,notloggedon);
-        if (user->level<WIZ) write_user(user,"Usage: listen <all/tells/other/shout/log/beep/bcast/most/atmos> or <user name>\n");
-        if (user->level>=WIZ) write_user(user,"Usage: listen <all/tells/other/shout/log/beep/bcast/most/wiz/atmos> or <user name>\n");
+        if (user->level<WIZ) write_user(user,"Usage: listen <all/tells/other/shout/log/beep/bcast/most/atmos/pics> or <user name>\n");
+        if (user->level>=WIZ) write_user(user,"Usage: listen <all/tells/other/shout/log/beep/bcast/most/wiz/atmos/pics> or <user name>\n");
 	return;
 	}
 if (u==user) {
@@ -7237,7 +7574,7 @@ else strcpy(ignwiz,"NO ");
 if (user->ignore & ATMOS_MSGS)  strcpy(ignatmos,"YES");
 else strcpy(ignatmos,"NO ");
 if (word_count<2 && user->level<WIZ) {
-	write_user(user,"Usage: ignore <tells/other/shout/log/beep/bcast/most> or <user name>\n\n");
+	write_user(user,"Usage: ignore <tells/other/shout/log/beep/bcast/most/pics> or <user name>\n\n");
 	sprintf(text,"Igngoring All tells             : %s \n",igntell);
 	write_user(user,text);
 	sprintf(text,"Ignoring Tells from other rooms : %s \n",ignother);
@@ -7252,12 +7589,14 @@ if (word_count<2 && user->level<WIZ) {
 	write_user(user,text);
 	sprintf(text,"Ignoring Atmospheres            : %s \n",ignatmos);
 	write_user(user,text);
-	sprintf(text,"Ignoring user                   : %s \n",user->ignuser);
+	sprintf(text,"Ignoring Room Pictures          : %s \n",ignroom);
+	write_user(user,text);
+	sprintf(text,"Ignoring user                   : %s \n\n",user->ignuser);
 	write_user(user,text);
 	return;
 	}
 if (word_count<2 && user->level>=WIZ) {
-	write_user(user,"Usage: ignore <tells/other/shout/log/beep/bcast/most/wiz> or <user name>\n\n");
+	write_user(user,"Usage: ignore <tells/other/shout/log/beep/bcast/most/wiz/pics> or <user name>\n\n");
 	sprintf(text,"Ignoring All tells              : %s \n",igntell);
 	write_user(user,text);
 	sprintf(text,"Ignoring Tells from other rooms : %s \n",ignother);
@@ -7272,9 +7611,11 @@ if (word_count<2 && user->level>=WIZ) {
 	write_user(user,text);
 	sprintf(text,"Ignoring Atmospheres            : %s \n",ignatmos);
 	write_user(user,text);
+	sprintf(text,"Ignoring Room Pictures          : %s \n",ignroom);
+	write_user(user,text);
 	sprintf(text,"Ignoring Wizard mesages         : %s \n",ignwiz);
 	write_user(user,text);
-	sprintf(text,"Ignoring user                   : %s \n",user->ignuser);
+	sprintf(text,"Ignoring user                   : %s \n\n",user->ignuser);
 	write_user(user,text);
 	return;
 	}
@@ -7332,11 +7673,11 @@ if (strstr(word[1],"bcast")) {
 	user->ignore+=BCAST_MSGS;
 	return;
 	}
-if (strstr(word[1],"picture") && (user->ignore & ROOM_PICTURE)) {
+if (strstr(word[1],"pics") && (user->ignore & ROOM_PICTURE)) {
         write_user(user,"~CRYou are already ignoring pictures.\n");
 	return;
 	}
-if (strstr(word[1],"picture")) {
+if (strstr(word[1],"pics")) {
         write_user(user,"~CGYou are ignoring pictures.\n");
 	user->ignore+=ROOM_PICTURE;
 	return;
@@ -7370,8 +7711,8 @@ if (strstr(word[1],"at")) {
 	}
 if (!(u=get_user(word[1]))) {
 	write_user(user,notloggedon);
-        if (user->level<WIZ) write_user(user,"Usage: ignore <tells/other/shout/log/beep/bcast/most/atmos> or <user name>\n");
-        if (user->level>=WIZ) write_user(user,"Usage: ignore <tells/other/shout/log/beep/bcast/most/wiz/atmos> or <user name>\n");
+        if (user->level<WIZ) write_user(user,"Usage: ignore <tells/other/shout/log/beep/bcast/most/atmos/pics> or <user name>\n");
+        if (user->level>=WIZ) write_user(user,"Usage: ignore <tells/other/shout/log/beep/bcast/most/wiz/atmos/pics> or <user name>\n");
 	return;
 	}
 if (u==user) {
@@ -7414,10 +7755,10 @@ if (user->muzzled & SCUM) {
 	}
 if (user->prompt & 1) {
      write_user(user,"~CYTime Prompt Is Now Off.  Type .prompt to toggle prompt on/off.\n");
-	user->prompt--;  return;
+	user->prompt=0;  return;
 	}
 write_user(user,"~CYTime Prompt Is Now On.  Type .prompt to toggle prompt on/off\n");
-user->prompt++;
+user->prompt=1;
 }
 
 
@@ -7475,17 +7816,21 @@ if (user->muzzled & JAILED) {
 	return;
 	}
 cnt=0;
-if (user->high_ascii) write_user(user,"~FT컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴\n");
-else write_user(user,"~FT------------------------------------------------------------------------------\n");
 for(u=user_first;u!=NULL;u=u->next) {
 	if (u->type==CLONE_TYPE) continue;
+	if (u->type==BOT_TYPE) continue; /* Don't want bot showing as staff */
         if (!u->vis || u->hidden) continue;
         if (u->level<WIZ) continue;
+	if (is_user_bot(u->name)) continue;
 	if (++cnt==1) {
-                sprintf(text,"\n~FM-~CM=~CR[ ~RSStaff Present at %s %s ~CR]~CM=~FM-\n\n",TALKERNAME,long_date(1));
- 	 	write_user(user,text);
+		if (user->high_ascii) write_user(user,"\n~FR컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴\n");
+		else write_user(user,"\n~FR------------------------------------------------------------------------------\n");
+                sprintf(text,"~FM-~CM=~CR[ ~CYStaff Present at %s~CY %s ~CR]~CM=~FM-",TALKERNAME,long_date(1));
+ 	 	write_user(user,center(text,78));
+		if (user->high_ascii) write_user(user,"\n~FR컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴\n");
+		else write_user(user,"\n~FR------------------------------------------------------------------------------\n");
 	}
-        sprintf(text," ~CMName: ~FT%-20.20s ~FMRank: ~FT%-20.20s ~FMLevel: %s\n",colour_com_strip(u->recap),u->level_alias,level_name[u->level]);
+        sprintf(text," ~CBName~CT: ~CG%-20.20s ~CBRank~CT: ~CM%-20.20s ~CBLevel~CT: ~CY%s\n",colour_com_strip(u->recap),u->level_alias,level_name[u->level]);
 	write_user(user,text);
 	}
 if (!cnt) {
@@ -7495,10 +7840,10 @@ else    {
 	if (user->high_ascii) write_user(user,"~FR컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴\n");
 	else write_user(user,"~FR------------------------------------------------------------------------------\n");
         sprintf(text,"~CGThere are ~CM%d~CG staff members online!\n",cnt);
-	write_user(user,text);
+	write_user(user,center(text,78));
 	}
-if (user->high_ascii) write_user(user,"~FT컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴\n");
-else write_user(user,"~FT------------------------------------------------------------------------------\n");
+if (user->high_ascii) write_user(user,"~FR컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴\n");
+else write_user(user,"~FR------------------------------------------------------------------------------\n\n");
 }
 
 /*** Do AFK ***/
@@ -7973,9 +8318,8 @@ if ((user->level<=u->level) && u!=user && user->level<OWNER) {
         return;
         }
 if (!strncasecmp(word[2],"m",1)) {
-     if (u->prompt & MALE) { write_user(user,"User's Gender Is Already Set To Male!\n"); return; }
-     if (u->prompt & FEMALE) u->prompt-=FEMALE;
-     u->prompt+=MALE;
+     if (u->gender==GEN_MALE) { write_user(user,"User's Gender Is Already Set To Male!\n"); return; }
+     u->gender=GEN_MALE;
      sprintf(text,"~CW-> ~FM%s~RS~CM's gender has been set to Male.\n",u->recap);
      write_user(user,text);
      sprintf(text,"~CW-> ~FM%s~RS~CM has set your gender to Male.\n",user->recap);
@@ -7983,9 +8327,8 @@ if (!strncasecmp(word[2],"m",1)) {
      return;
      }
 if (!strncasecmp(word[2],"f",1)) {
-     if (u->prompt & FEMALE) { write_user(user,"User's Gender Is Already Set To Female!\n"); return; }
-     if (u->prompt & MALE) u->prompt-=MALE;
-     u->prompt+=FEMALE;
+     if (u->gender==GEN_FEMALE) { write_user(user,"User's Gender Is Already Set To Female!\n"); return; }
+     u->gender=GEN_FEMALE;
      sprintf(text,"~CW-> ~FM%s~RS~CM's gender has been set to Female.\n",u->recap);
      write_user(user,text);
      sprintf(text,"~CW-> ~FM%s~RS~CM has set your gender to Female.\n",user->recap);
@@ -7993,9 +8336,7 @@ if (!strncasecmp(word[2],"f",1)) {
      return;
      }
 if (!strncasecmp(word[2],"n",1)) {
-     if (u->prompt & MALE) u->prompt-=MALE;
-     else if (u->prompt & FEMALE) u->prompt-=FEMALE;
-     u->prompt+=NEUTER;
+     u->gender=GEN_NEUTER;
      sprintf(text,"~CW-> ~FM%s~RS~CM's gender has been set to Neuter.\n",u->recap);
      write_user(user,text);
      sprintf(text,"~CW-> ~FM%s~RS~CM has set your gender to Neuter.\n",user->recap);
@@ -8073,11 +8414,11 @@ char *c,filename[80];
 
 rm=user->room;
 if (!done_editing) {
-     sprintf(text,entroom_start,user->recap);
-     write_room_except(user->room,text,user);
+        sprintf(text,entroom_start,user->recap);
+        write_room_except(user->room,text,user);
 	write_user(user,"\n");
-     sprintf(text,entroom_edit_header);
-     write_user(user,center(text,78));
+        sprintf(text,entroom_edit_header);
+        write_user(user,center(text,78));
 	write_user(user,"\n\n");
 	user->misc_op=8;
 	editor(user,NULL);
@@ -8098,6 +8439,7 @@ fclose(fp);
 sprintf(text,entroom_end,user->recap);
 write_room_except(user->room,text,user);
 write_user(user,"Your Room Description Has Been Saved.\n");
+word_count=1;
 look(user);
 }
 
@@ -8257,7 +8599,7 @@ if (u->muzzled & SCUM) {
         }
 else {
 	strcpy(levelname,level_name[u->level]);
- 	if (u->prompt & FEMALE) strcpy(levelname,level_name_fem[u->level]);
+ 	if (u->gender==GEN_FEMALE) strcpy(levelname,level_name_fem[u->level]);
 	}
 if (u->muzzled & JAILED) {
      strncpy(levelname,ustat_jail_levelname,30);
@@ -8266,8 +8608,8 @@ if (u->muzzled & JAILED) {
 if (u->gaged) strcpy(isbad,"Gaged");
 if (u->muzzled & 1 && u->gaged) strcpy(isbad,"Muzzled & Gaged");
 strcpy(gendertype,"Neuter");
-if (u->prompt & 4) strcpy(gendertype,"Female");
-if (u->prompt & 8) strcpy(gendertype,"Male  ");
+if (u->gender==GEN_FEMALE) strcpy(gendertype,"Female");
+if (u->gender==GEN_MALE) strcpy(gendertype,"Male  ");
 if (u->invite_room==NULL) strcpy(ir,"Nowhere");
 else strcpy(ir,u->invite_room->name);
 if (!offline) hs=1;
@@ -8409,15 +8751,13 @@ else write_user(user,"~CM-------------------------------------------------------
 void examine(UR_OBJECT user)
 {
 UR_OBJECT u,u2;
-u=NULL;
-u2=NULL;
-
 FILE *fp;
-char filename[80],line[129],ir[30],levelname[USER_ALIAS_LEN+2],levelname2[50],gendertype[16],genderx[4];
+char filename[80],line[129],ir[30],levelname[USER_ALIAS_LEN+2],levelname2[50],gendertype[16];
 char gaylesbian[21];
 char *profsub(), *center();
 int new_mail,days,hours,mins,timelen,days2,hours2,mins2,idle;
 
+u=NULL; u2=NULL;
 if (user->muzzled & JAILED) {
         write_user(user,"~CR%% ~CMYou are in jail, you cannot use the examine command...\n");
 	return;
@@ -8473,17 +8813,17 @@ days2=timelen/86400;
 hours2=(timelen%86400)/3600;
 mins2=(timelen%3600)/60;
 strncpy(levelname,u->level_alias,USER_ALIAS_LEN);
-if (u->prompt & FEMALE) strncpy(levelname2,level_name_fem[u->level],49);
+if (u->gender==GEN_FEMALE) strncpy(levelname2,level_name_fem[u->level],49);
 else strncpy(levelname2,level_name[u->level],49);
 if (u->muzzled & JAILED) strcpy(levelname,"Jailed");
 strcpy(gendertype,"Neuter");
-if (u->prompt & 4) strcpy(gendertype,"Female");
-if (u->prompt & 8) strcpy(gendertype,"Male");
+if (u->gender==GEN_FEMALE) strcpy(gendertype,"Female");
+if (u->gender==GEN_MALE) strcpy(gendertype,"Male");
 if (u->invite_room==NULL) strcpy(ir,"<nowhere>");
 if (u->bdsm_type>MAX_BDSM_TYPES) u->bdsm_type=0;
 if (u->bdsm_life_type==1) {
 	strcpy(gaylesbian,"Gay");
-	if (u->prompt & 4) strcpy(gaylesbian,"Lesbian");
+	if (u->gender==GEN_FEMALE) strcpy(gaylesbian,"Lesbian");
 	}
 else strncpy(gaylesbian,bdsm_life_types[u->bdsm_life_type],20);
 /* XXX */
@@ -8504,10 +8844,16 @@ if (u2==NULL) {
         write_user(user,text);
         sprintf(text,"~CGBrand Desc   ~CW: ~CT%s\n",u->brand_desc);
         write_user(user,text);
-        sprintf(text,"~CGEmail Address~CW: ~CT%s\n",u->branded_by);
-        write_user(user,text);
+	if (!u->hide_email || user->level>=ARCH) {
+		if (u->hide_email) sprintf(text,"~CGEmail Address~CW: ~CT%s ~CB(~CYhidden~CB)\n",u->email);
+	        else sprintf(text,"~CGEmail Address~CW: ~CT%s\n",u->email);
+	        write_user_nr(user,text);
+		}
+	else {
+		write_user(user,"~CGEmail Address~CW: ~CB(~CYHidden~CB)\n");
+		}
         sprintf(text,"~CGWebpage URL  ~CW: ~CT%s\n",u->homepage);
-        write_user(user,text);
+        write_user_nr(user,text);
         if (user->level==OWNER) {
              sprintf(text,"~CRReal Age     ~CW: ~FT%d\n",u->age);
 	     write_user(user,text);
@@ -8520,17 +8866,14 @@ if (u2==NULL) {
 	write_user(user,text);
      	sprintf(text,"~CGWhich was    ~CW: ~CT%d days, %d hours, %d minutes ago\n",days2,hours2,mins2);
 	write_user(user,text);
-        sprintf(text,"~CGWas on for   ~CW: ~CT%d days, ~CT%d hours, %d minutes\n~CGTotal login ~CW:~CM %d days, %d hours, %d minutes\n",(u->last_login_len/86400),(u->last_login_len/3600),(u->last_login_len%3600)/60,days,hours,mins);
+        sprintf(text,"~CGWas on for   ~CW: ~CT%d days, ~CT%d hours, %d minutes\n~CGTotal login  ~CW:~CM %d days, %d hours, %d minutes\n",(u->last_login_len/86400),(u->last_login_len/3600),(u->last_login_len%3600)/60,days,hours,mins);
 	write_user(user,text);
      	if (user->level>=WIZ) {
         	sprintf(text,"~CGLast site    ~CW: ~CT%s\n",u->last_site);
 	  	write_user(user,text);
 	  	}
-     	strcpy(genderx,"its");
-     	if (u->prompt & 4) strcpy(genderx,"her");
-     	if (u->prompt & 8) strcpy(genderx,"his");
      	if (new_mail>u->read_mail) {
-           sprintf(text,"~CGMail Status  ~CW: ~CM%s~RS~CM hasn't read %s new mail yet!\n",u->recap,genderx);
+           sprintf(text,"~CGMail Status  ~CW: ~CM%s~RS~CM hasn't read %s new mail yet!\n",u->recap,hisher[u->gender]);
 	   write_user(user,text);
 	   }
      if (user->high_ascii) write_user(user,"~CM컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴\n");
@@ -8557,10 +8900,16 @@ if (u2==NULL) {
      write_user(user,text);
      sprintf(text,"~CGBrand Desc   ~CW: ~CT%s\n",u->brand_desc);
      write_user(user,text);
-     sprintf(text,"~CGEmail Address~CW: ~CT%s\n",u->email);
-     write_user(user,text);
+     if (!u->hide_email || user->level>=ARCH) {
+	if (u->hide_email) sprintf(text,"~CGEmail Address~CW: ~CT%s ~CB(~CYhidden~CB)\n",u->email);
+	else sprintf(text,"~CGEmail Address~CW: ~CT%s\n",u->email);
+     	write_user_nr(user,text);
+     	}
+     else {
+	write_user(user,"~CGEmail Address~CW: ~CB(~CYhidden~CB)\n");
+	}
      sprintf(text,"~CGWebpage URL  ~CW: ~CT%s\n",u->homepage);
-     write_user(user,text);
+     write_user_nr(user,text);
      if (user->level==OWNER) {
  	     sprintf(text,"~CRReal Age     ~CW: ~CT%d\n",u->age);
 	     write_user(user,text);
@@ -8591,7 +8940,7 @@ if (u2==NULL) {
         }
     if (user->level>=WIZ) {
         sprintf(text,"~CMSite         ~CW: ~CT%s:%s\n",u->site,u->site_port);
-        write_user(user,text);
+        write_user_nr(user,text);
         }
      if (user->high_ascii) write_user(user,"~CM컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴\n");
      else write_user(user,"~CM------------------------------------------------------------------------------\n");
@@ -8603,8 +8952,9 @@ if (u2==NULL) {
 /*** Do the help ***/
 void help(UR_OBJECT user)
 {
-int ret,len,i;
-char filename[80];
+int ret,len,i,cols,cols2;
+FILE *fp;
+char filename[80], line[ARR_SIZE+2];
 char *c,*comword=NULL;
 
 if (user->muzzled & SCUM) {
@@ -8639,6 +8989,7 @@ if (user->muzzled & JAILED) {
      else write_user(user,"~CM------------------------------------------------------------------------------\n");
      return;
      }
+
 if (word_count<2) { help_commands(user); return; }
 if (!strcmp(word[1],"nuts")) {  help_nuts(user);  return;  }
 
@@ -8672,12 +9023,34 @@ if (com_level[com_num]>user->level) {
 	write_user(user,text);
 	return;
 	}
+
 sprintf(filename,"%s/%s",HELPFILES,word[1]);
-if (!(ret=more(user,user->socket,filename))) {
+if (!(fp=fopen(filename,"r"))) {
         sprintf(text,"~CRSorry, could not find the help file ~FB\"~FY%s~FB\".\n",word[1]);
         write_user(user,text);
+	return;
         }
-if (ret==1) user->misc_op=2;
+write_user(user,SEPERATOR1);
+write_user(user,"\n");        
+fgets(line,ARR_SIZE,fp);
+while(!feof(fp)) {
+        line[strlen(line)-1]=0;
+        cols=colour_com_count(line);
+	cols2=count_shown_colour_codes(line);
+	sprintf(text,"~FG| ~RS%-*.*s ~FB|\n",(73+((cols-cols2)*3)),(73+((cols-cols2)*3)),line);
+        write_user(user,text);
+        fgets(line,ARR_SIZE,fp);
+        }
+fclose(fp);
+write_user(user,SEPERATOR2);
+write_user(user,"\n");        
+ret=com_level[com_num];
+line[0]='\0';
+sprintf(line,"Command Is For Level: %s and Above.",level_name[ret]);
+sprintf(text,"~FG| ~CT%-73.73s ~FB|\n",line);
+write_user(user,text);
+write_user(user,SEPERATOR3);
+write_user(user,"\n");        
 }
 
 /*** Show the command available ***/
@@ -8707,7 +9080,7 @@ for(lev=NEW;lev<=user->level;++lev) {
           strcat(text,temp);
           if (cnt==6) {
                         strcat(text,"\n");
-			write_user(user,text);
+			write_user_nr(user,text);
 			text[0]='\0';
 			cnt=-1;
 			}
@@ -8715,7 +9088,7 @@ for(lev=NEW;lev<=user->level;++lev) {
 		}
 	if (cnt) {
 		strcat(text,"\n");
-		write_user(user,text);
+		write_user_nr(user,text);
 		}
 	}
 if (user->high_ascii) write_user(user,"~CM컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴\n");
@@ -8970,16 +9343,16 @@ rm=user->room;
 if (user->vis) name=user->recap; else name=invisname;
 sprintf(infile,"%s/%s.B",DATAFILES,rm->name);
 if (!(infp=fopen(infile,"r"))) {
-     write_user(user,wipe_empty_board);
+        write_user(user,wipe_empty_board);
 	return;
 	}
 if (!strcmp(word[1],"all")) {
 	fclose(infp);
 	unlink(infile);
-     write_user(user,wipe_user_all_deleted);
-     sprintf(text,wipe_room_all_deleted,name);
+        write_user(user,wipe_user_all_deleted);
+        sprintf(text,wipe_room_all_deleted,name);
 	write_room_except(rm,text,user);
-     sprintf(text,"%s wiped the message board in the %s room.\n",user->recap,rm->recap);
+        sprintf(text,"%s wiped the message board in the %s room.\n",user->recap,rm->recap);
 	write_syslog(text,1);
 	rm->mesg_cnt=0;
 	return;
@@ -9011,9 +9384,9 @@ if (!strcmp(word[1],"top")) {
 	unlink(infile);
 	if (cnt<num) {
 		unlink("tempfile");
-          sprintf(text,wipe_too_many,cnt);
+          	sprintf(text,wipe_too_many,cnt);
 		write_user(user,text);
-          sprintf(text,wipe_room_all_deleted,name);
+        	sprintf(text,wipe_room_all_deleted,name);
 		write_room_except(rm,text,user);
 		sprintf(text,"%s wiped all messages from the board in the %s.\n",user->name,rm->recap);
 		write_syslog(text,1);
@@ -9022,20 +9395,20 @@ if (!strcmp(word[1],"top")) {
 		}
 	if (cnt==num) {
 		unlink("tempfile"); /* cos it'll be empty anyway */
-          write_user(user,wipe_user_all_deleted);
+          	write_user(user,wipe_user_all_deleted);
 		user->room->mesg_cnt=0;
-          sprintf(text,"%s wiped all messages from the board in the %s.\n",user->name,rm->recap);
+          	sprintf(text,"%s wiped all messages from the board in the %s.\n",user->name,rm->recap);
 		}
 	else {
 		rename("tempfile",infile);
 		check_messages(user,1);
-          sprintf(text,wipe_deleted_top,num);
+          	sprintf(text,wipe_deleted_top,num);
 		write_user(user,text);
 		user->room->mesg_cnt-=num;
-          sprintf(text,"%s wiped %d messages from the board in the %s.\n",user->name,num,rm->recap);
+          	sprintf(text,"%s wiped %d messages from the board in the %s.\n",user->name,num,rm->recap);
 		}
 	write_syslog(text,1);
-     sprintf(text,wipe_deleted_some,name,num);
+     	sprintf(text,wipe_deleted_some,name,num);
 	write_room_except(rm,text,user);
 	return;
 	}
@@ -9064,9 +9437,9 @@ if (!strcmp(word[1],"bottom")) {
 	if (num<0) {
 		fclose(infp);
 		unlink(infile);
-          sprintf(text,wipe_too_many,total);
+          	sprintf(text,wipe_too_many,total);
 		write_user(user,text);
-          sprintf(text,wipe_room_all_deleted,name);
+          	sprintf(text,wipe_room_all_deleted,name);
 		write_room_except(rm,text,user);
 		sprintf(text,"%s wiped all messages from the board in the %s.\n",user->name,rm->recap);
 		write_syslog(text,1);
@@ -9089,20 +9462,20 @@ if (!strcmp(word[1],"bottom")) {
 	unlink(infile);
 	if (cnt==total) {
 		unlink("tempfile"); /* cos it'll be empty anyway */
-          write_user(user,wipe_user_all_deleted);
+          	write_user(user,wipe_user_all_deleted);
 		user->room->mesg_cnt=0;
 		sprintf(text,"%s wiped all messages from the board in the %s.\n",user->name,rm->recap);
 		}
 	else {
 		rename("tempfile",infile);
 		check_messages(user,1);
-          sprintf(text,wipe_deleted_bottom,total);
+          	sprintf(text,wipe_deleted_bottom,total);
 		write_user(user,text);
 		user->room->mesg_cnt-=total;
 		sprintf(text,"%s wiped %d messages from the board in the %s.\n",user->name,total,rm->recap);
 		}
 	write_syslog(text,1);
-     sprintf(text,wipe_deleted_some,name,total);
+	sprintf(text,wipe_deleted_some,name,total);
 	write_room_except(rm,text,user);
 	return;
 	}
@@ -9111,14 +9484,14 @@ if (just_one) {
 	valid=1;
 	if (cnt_um==1) {
 		unlink(infile); /* cos it'll be empty anyway */
-          write_user(user,wipe_user_all_deleted);
+          	write_user(user,wipe_user_all_deleted);
 		user->room->mesg_cnt=0;
 		sprintf(text,"%s wiped all messages from the board in the %s.\n",user->name,rm->recap);
 		write_syslog(text,1);
 		return;
 		}
 	if (num>cnt_um) {
-          sprintf(text,wipe_missing_number,cnt_um,num);
+          	sprintf(text,wipe_missing_number,cnt_um,num);
 		write_user(user,text);
 		print_useage(user,1);
 		return;
@@ -9139,11 +9512,11 @@ if (just_one) {
 	unlink(infile);
 	rename("tempfile",infile);
 	check_messages(user,1);
-     sprintf(text,wipe_user_one_message);
+     	sprintf(text,wipe_user_one_message);
 	write_user(user,text);
-     sprintf(text,"%s wiped one message from the board in the %s.\n",user->name,rm->recap);
+     	sprintf(text,"%s wiped one message from the board in the %s.\n",user->name,rm->recap);
 	write_syslog(text,1);
-     sprintf(text,wipe_room_one_message,name);
+     	sprintf(text,wipe_room_one_message,name);
 	write_room_except(rm,text,user);
 	return;
 	}
@@ -9159,7 +9532,7 @@ if (range) {
 		return;
 		}
 	if (num_one>cnt_um) {
-          sprintf(text,wipe_missing_number,cnt_um,num_one);
+          	sprintf(text,wipe_missing_number,cnt_um,num_one);
 		write_user(user,text);
 		print_useage(user,1);
 		return;
@@ -9181,11 +9554,11 @@ if (range) {
 	unlink(infile);
 	rename("tempfile",infile);
 	check_messages(user,1);
-     sprintf(text,wipe_user_delete_range,total);
+     	sprintf(text,wipe_user_delete_range,total);
 	write_user(user,text);
-     sprintf(text,"%s wiped %d messages from the board in the %s.\n",user->name,total,rm->recap);
+     	sprintf(text,"%s wiped %d messages from the board in the %s.\n",user->name,total,rm->recap);
 	write_syslog(text,1);
-     sprintf(text,wipe_room_all_deleted,name);
+     	sprintf(text,wipe_room_all_deleted,name);
 	write_room_except(rm,text,user);
 	return;
 	}
@@ -9193,31 +9566,31 @@ if (!just_one || !range) {
 	cnt=0;
 	valid=1;
 	if (num>cnt_um) {
-          sprintf(text,wipe_too_many,cnt_um,num);
+          	sprintf(text,wipe_too_many,cnt_um,num);
 		write_user(user,text);
 		print_useage(user,1);
 		return;
 		}
 	if (num_one>cnt_um) {
-          sprintf(text,wipe_too_many,cnt_um,num_one);
+          	sprintf(text,wipe_too_many,cnt_um,num_one);
 		write_user(user,text);
 		print_useage(user,1);
 		return;
 		}
 	if (num_two>cnt_um ) {
-          sprintf(text,wipe_too_many,cnt_um,num_two);
+          	sprintf(text,wipe_too_many,cnt_um,num_two);
 		write_user(user,text);
 		print_useage(user,1);
 		return;
 		}
 	if (num_three>cnt_um) {
-          sprintf(text,wipe_too_many,cnt_um,num_three);
+          	sprintf(text,wipe_too_many,cnt_um,num_three);
 		write_user(user,text);
 		print_useage(user,1);
 		return;
 		}
 	if (num_four>cnt_um) {
-          sprintf(text,wipe_too_many,cnt_um,num_four);
+          	sprintf(text,wipe_too_many,cnt_um,num_four);
 		write_user(user,text);
 		print_useage(user,1);
 		return;
@@ -9273,11 +9646,11 @@ if (!just_one || !range) {
 	unlink(infile);
 	rename("tempfile",infile);
 	check_messages(user,1);
-     sprintf(text,wipe_user_delete_range,total);
+     	sprintf(text,wipe_user_delete_range,total);
 	write_user(user,text);
 	sprintf(text,"%s wiped %d message from the board in the %s.\n",user->name,total,rm->recap);
 	write_syslog(text,1);
-     sprintf(text,wipe_deleted_some,name,total);
+     	sprintf(text,wipe_deleted_some,name,total);
 	write_room_except(rm,text,user);
 	return;
 	}
@@ -9329,7 +9702,7 @@ for(rm=room_first;rm!=NULL;rm=rm->next) {
 		for(w=1;w<word_count;++w) {
 			if (!yes && strstr(line,word[w])) {
 				if (!room_given) {
-                         sprintf(text,"~BM*** %s~BM ***\n\n",rm->recap);
+                         		sprintf(text,"~BM*** %s~BM ***\n\n",rm->recap);
 					write_user(user,text);
 					room_given=1;
 					}
@@ -9421,7 +9794,7 @@ if (word_count<2) {
 	}
 if (user->muzzled & FROZEN) {
 	word[1][0]=toupper(word[1][0]);
-     sprintf(text,sendmail_prompt,word[1]);
+     	sprintf(text,sendmail_prompt,word[1]);
 	write_user(user,text);
 	return;
 	}
@@ -9538,13 +9911,13 @@ if (!total && !just_one && !range) {
 	}
 sprintf(infile,"%s/%s.M",USERFILES,user->name);
 if (!(infp=fopen(infile,"r"))) {
-     write_user(user,dmail_nomail);
+     	write_user(user,dmail_nomail);
 	return;
 	}
 if (!strcmp(word[1],"all")) {
 	fclose(infp);
 	unlink(infile);
-     write_user(user,dmail_all);
+     	write_user(user,dmail_all);
 	return;
 	}
 if (!(outfp=fopen("tempfile","w"))) {
@@ -9563,7 +9936,7 @@ if (!strcmp(word[1],"top")) {
 		if (cnt<=num) {
 			if (*line=='\n') valid=1;
 			sscanf(line,"%s",id);
-               if (valid && (!strcmp(colour_com_strip(id),"From:"))) {
+               		if (valid && (!strcmp(colour_com_strip(id),"From:"))) {
 				if (++cnt>num) fputs(line,outfp);
 				valid=0;
 				}
@@ -9576,17 +9949,17 @@ if (!strcmp(word[1],"top")) {
 	unlink(infile);
 	if (cnt<num) {
 		unlink("tempfile");
-          sprintf(text,dmail_too_many,cnt);
+          	sprintf(text,dmail_too_many,cnt);
 		write_user(user,text);
 		return;
 		}
 	if (cnt==num) {
 		unlink("tempfile"); /* cos it'll be empty anyway */
-          write_user(user,dmail_all);
+          	write_user(user,dmail_all);
 		return;
 		}
 	rename("tempfile",infile);
-     sprintf(text,dmail_some,num);
+     	sprintf(text,dmail_some,num);
 	write_user(user,text);
 	return;
 	}
@@ -9616,7 +9989,7 @@ if (!strcmp(word[1],"bottom")) {
 	if (num<0) {
 		fclose(infp);
 		unlink(infile);
-          sprintf(text,dmail_too_many,total);
+          	sprintf(text,dmail_too_many,total);
 		write_user(user,text);
 		return;
 		}
@@ -9626,7 +9999,7 @@ if (!strcmp(word[1],"bottom")) {
 	while(!feof(infp)) {
 		if (*line=='\n') valid=1;
 		sscanf(line,"%s",id);
-          if (valid && (!strcmp(colour_com_strip(id),"From:"))) {
+          	if (valid && (!strcmp(colour_com_strip(id),"From:"))) {
 			if (++cnt<num) fputs(line,outfp);
 			valid=0;
 			}
@@ -9642,7 +10015,7 @@ if (!strcmp(word[1],"bottom")) {
 		return;
 		}
 	rename("tempfile",infile);
-     sprintf(text,dmail_bottom,total);
+     	sprintf(text,dmail_bottom,total);
 	write_user(user,text);
 	return;
 	}
@@ -9650,14 +10023,14 @@ if (just_one) {
 	cnt=0;
 	valid=1;
 	if (num>cnt_um) {
-          sprintf(text,dmail_no_number,cnt_um,num);
+        	sprintf(text,dmail_no_number,cnt_um,num);
 		write_user(user,text);
 		print_useage(user,0);
 		return;
 		}
 	if (cnt_um==1) {
 		unlink(infile); /* cos it'll be empty anyway */
-          write_user(user,dmail_all);
+          	write_user(user,dmail_all);
 		return;
 		}
 	fgets(line,DNL,infp);
@@ -9666,7 +10039,7 @@ if (just_one) {
 	while(!feof(infp)) {
 		if (*line=='\n') valid=1;
 		sscanf(line,"%s",id);
-          if (valid && (!strcmp(colour_com_strip(id),"From:"))) {
+          	if (valid && (!strcmp(colour_com_strip(id),"From:"))) {
 			if (++cnt!=num) fputs(line,outfp);
 			valid=0;
 			}
@@ -9677,7 +10050,7 @@ if (just_one) {
 	fclose(outfp);
 	unlink(infile);
 	rename("tempfile",infile);
-     sprintf(text,dmail_one_message);
+     	sprintf(text,dmail_one_message);
 	write_user(user,text);
 	return;
 	}
@@ -9690,7 +10063,7 @@ if (range) {
 		return;
 		}
 	if (num_one>cnt_um) {
-          sprintf(text,dmail_no_number,cnt_um,num_one);
+          	sprintf(text,dmail_no_number,cnt_um,num_one);
 		write_user(user,text);
 		print_useage(user,0);
 		return;
@@ -9713,7 +10086,7 @@ if (range) {
 	fclose(outfp);
 	unlink(infile);
 	rename("tempfile",infile);
-     sprintf(text,dmail_some_messages,total);
+     	sprintf(text,dmail_some_messages,total);
 	write_user(user,text);
 	return;
 	}
@@ -9821,7 +10194,7 @@ if (user->muzzled & JAILED) {
 	}
 sprintf(filename,"%s/%s.M",USERFILES,user->name);
 if (!(fp=fopen(filename,"r"))) {
-     write_user(user,nomail_prompt);  return;
+     	write_user(user,nomail_prompt);  return;
 	}
 if (user->high_ascii) {
      write_user(user,"~CT~BM旼컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴�~RS\n");
@@ -10094,7 +10467,7 @@ for(u=user_first;u!=NULL;u=u->next) {
           write_user(user,clone_switch_prompt);
 		u->room=user->room;
 		user->room=rm;
-		look(user);
+		word_count=1; look(user);
 		return;
 		}
 	}
@@ -10661,11 +11034,15 @@ if (word_count<3) {
      write_user(user,"   i.e. .ban new .theirsite.com\n");
      write_user(user,"   i.e. .ban new 198.123.241.   (omit last number)\n\n");
      write_user(user,"Usage:  .ban user <username>\n\n");
+     write_user(user,"Usage:  .ban protect <username>\n\n");
+     write_user(user,"   i.e. .ban protect Moe  (Protects Moe from Deletion)\n");
      return;
      }
+
 if (!strcmp(word[1],"site")) { ban_site(user); return; }
 if (!strcmp(word[1],"user")) { ban_user(user); return; }
 if (!strcmp(word[1],"new"))  { ban_new(user);  return; }
+if (!strcmp(word[1],"protect"))  { add_protected_user(user);  return; }
 
 /* Neither site/user/new was specified, show usage! */
 write_user(user,"Usage:  .ban site <site to be banned>\n");
@@ -10848,7 +11225,7 @@ if (u!=NULL) {
 /*** uban a site (or domain) or user ***/
 void unban(UR_OBJECT user)
 {
-char *usage="Usage: unban site/new/user <site/user name>\n";
+char *usage="Usage: unban site/new/user/protect <site/user name>\n";
 
 if (word_count<3) {
 	write_user(user,usage);  return;
@@ -10856,6 +11233,7 @@ if (word_count<3) {
 if (!strcmp(word[1],"site")) { unban_site(user); return; }
 if (!strcmp(word[1],"user")) { unban_user(user); return; }
 if (!strcmp(word[1],"new"))  { unban_new(user);  return; }
+if (!strcmp(word[1],"protect"))  { remove_protected_user(user);  return; }
 write_user(user,usage);
 }
 
@@ -10901,7 +11279,6 @@ write_user(user,"Site ban removed.\n");
 sprintf(text,"%s UNBANNED site %s.\n",user->name,word[2]);
 write_syslog(text,1);
 }
-
 
 void unban_new(UR_OBJECT user)
 {
@@ -10990,8 +11367,6 @@ sprintf(text,"%s UNBANNED user %s.\n",user->name,word[2]);
 write_syslog(text,1);
 }
 
-
-
 /*** Set user visible or invisible ***/
 void visibility(UR_OBJECT user,int vis)
 {
@@ -11047,7 +11422,6 @@ write_user(user,text);
 destruct_user(u);
 destructed=0;
 }
-
 
 /*** Shows wizard the record of a user ***/
 void view_record(UR_OBJECT user)
@@ -11934,7 +12308,7 @@ if (word_count<2) {
 	}
 if (!strcmp(word[1],"max")) {
 	temp=max_users;
-	if (word_count<3 || !isnumber(word[2])) {
+	if (word_count<3 || !isanumber(word[2])) {
 		write_user(user,"Usage: change max <10-100>\n");
 		return;
 		}
@@ -11958,7 +12332,7 @@ if (!strcmp(word[1],"max")) {
 	}
 if (!strcmp(word[1],"clones")) {
 	temp=max_clones;
-	if (word_count<3 || !isnumber(word[2])) {
+	if (word_count<3 || !isanumber(word[2])) {
 		write_user(user,"Usage: change clones <1-6>\n");
 		return;
 		}
@@ -11982,7 +12356,7 @@ if (!strcmp(word[1],"clones")) {
 	}
 if (!strcmp(word[1],"idle")) {
 	temp=user_idle_time;
-	if (word_count<3 || !isnumber(word[2])) {
+	if (word_count<3 || !isanumber(word[2])) {
 		write_user(user,"Usage: change idle <600-7200>\n");
 		return;
 		}
@@ -12006,7 +12380,7 @@ if (!strcmp(word[1],"idle")) {
 	}
 if (!strcmp(word[1],"life")) {
 	temp=mesg_life;
-	if (word_count<3 || !isnumber(word[2])) {
+	if (word_count<3 || !isanumber(word[2])) {
 		write_user(user,"Usage: change life <1-15>\n");
 		return;
 		}
@@ -12239,7 +12613,7 @@ void clearline(UR_OBJECT user)
 UR_OBJECT u;
 int sock;
 
-if (word_count<2 || !isnumber(word[1])) {
+if (word_count<2 || !isanumber(word[1])) {
 	write_user(user,"Usage: clearline <line>\n");  return;
 	}
 sock=atoi(word[1]);
@@ -12363,7 +12737,7 @@ if (cnt<lines) {
 	sprintf(text,"There are only %d lines in the login log.\n",cnt);
 	write_user(user,text);
 	fclose(fp);
-     write_user(user,"~FM-------------------------------------------------------------------------------\n");
+     	write_user(user,"~FM-------------------------------------------------------------------------------\n");
 	return;
 	}
 if (cnt==lines) {
@@ -12557,6 +12931,10 @@ UR_OBJECT u;
 char filename[80],name[USER_NAME_LEN+1];
 
 if (this_user) {
+	if (user_protected(user->name)) {
+		write_user(user,"You cannot suicide as you are marked as a protected user.\n");
+		return;
+		}
 	/* User structure gets destructed in disconnect_user(), need to keep a
 	   copy of the name */
 	strcpy(name,user->name);
@@ -12565,6 +12943,7 @@ if (this_user) {
         write_room(NULL,text);
 	sprintf(text,"%s suicided. ** Arrest Record Kept for viewing! **\n",name);
 	write_syslog(text,1);
+	delete_spod(user);  /* Remove Them From The Spod List */
 	disconnect_user(user);
 	sprintf(filename,"%s/%s.D",USERFILES,name);
 	unlink(filename);
@@ -12575,6 +12954,7 @@ if (this_user) {
 	clean_userlist(name);
 	return;
 	}
+
 if (word_count<2) {
 	write_user(user,"Usage: nuke <user>\n");
         return;
@@ -12602,12 +12982,19 @@ if (!load_user_details(u)) {
 	destructed=0;
 	return;
 	}
+if (user_protected(u->name)) {
+	write_user(user,"You cannot nuke a user who is being protected.\n");
+	destruct_user(u);
+	destructed=0;
+	return;
+	}
 if (u->level>=user->level) {
 	write_user(user,"You cannot nuke a user of an equal or higher level than yourself.\n");
 	destruct_user(u);
 	destructed=0;
 	return;
 	}
+delete_spod(u); /* Remove User From Spod List */
 destruct_user(u);
 destructed=0;
 clean_userlist(u->name);
@@ -12651,7 +13038,7 @@ if (!strcmp(word[1],"cancel")) {
 	rs_user=NULL;
 	return;
 	}
-if (word_count>1 && !isnumber(word[1])) {
+if (word_count>1 && !isanumber(word[1])) {
 	write_user(user,"Usage: shutdown [<secs>/cancel]\n");  return;
 	}
 if (rs_countdown && !rs_which) {
@@ -12698,7 +13085,7 @@ if (!strcmp(word[1],"cancel")) {
 	rs_user=NULL;
 	return;
 	}
-if (word_count>1 && !isnumber(word[1])) {
+if (word_count>1 && !isanumber(word[1])) {
 	write_user(user,"Usage: reboot [<secs>/cancel]\n");  return;
 	}
 if (rs_countdown) {
@@ -12715,7 +13102,8 @@ else {
 	rs_countdown=atoi(word[1]);
 	rs_which=1;
 	}
-write_user(user,"~BP~CB[~CRWarning~CB] ~CT- ~CRThis will reboot the talker.\n\n~CRAre you sure about this? ~CB(~CYy~CB/~CYn~CB)~CW: ");
+write_user(user,"~CB[~CRWarning~CB]~CW: ~CRThis will reboot the talker.~BP\n");
+write_user(user,"~CB[~CRWarning~CB]~CW: ~CRAre you sure you want to do this?~RS ");
 user->misc_op=7;
 no_prompt=1;
 }
@@ -12729,8 +13117,6 @@ char *ptr;
 char *args[]={ progname,confile,NULL };
 
 if (user!=NULL) ptr=user->name; else ptr=str;
-if (save_hist()) write_room(NULL,"~CGPoker history has been saved...\n");
-else write_room(NULL,"~CRERROR: ~CMCould not save poker history...\n");
 if (reboot) {
      write_room(NULL,"\07\n~CB[~CYM~CYoenuts~CB]~CW: ~FMRebooting now!!\n\n");
      sprintf(text,"*** REBOOT initiated by %s ***\n",ptr);
@@ -12838,10 +13224,12 @@ while(user) {
 	next=user->next;
 	if (user->type==CLONE_TYPE) {  user=next;  continue;  }
 	user->total_login+=heartbeat;
+	/* Keep The Bot Un-idle (blah(); resets idle and afk stats to none */
+	if (user->type==BOT_TYPE) {  blah(user);  user=next; continue;  }
 	if (user->level>time_out_maxlevel) {  user=next;  continue;  }
 	tm=(int)(time(0) - user->last_input);
 	if (user->login>0 && tm>=login_idle_time) {
-          write_user(user,login_timeout);
+          	write_user(user,login_timeout);
 		disconnect_user(user);
 		user=next;
 		continue;
@@ -12873,8 +13261,8 @@ while(user) {
 		&& !user->warned
 		&& tm>=user_idle_time-120) {
 		if (kill_idle_users) {
-               write_user(user,idle_user_warning);
-               sprintf(text,idle_room_drift);
+               		write_user(user,idle_user_warning);
+               		sprintf(text,idle_room_drift);
 			write_room(user->room,text);
 			}
 		user->warned=1;
@@ -13072,7 +13460,7 @@ for (i=0; i<5; ++i) {
 write_room(user->room,"\n");
 if (!user->hidden) {
 	strtoupper(inpstr);
-        sprintf(text,"%s announces: %s",name,inpstr);
+        sprintf(text,"%s announces: %s\n",name,inpstr);
 	record(user->room,text);
 	}
 }
@@ -13406,7 +13794,7 @@ if (!(u=get_user(word[1]))) {
 	return;
 	}
 if (u==user) {
-     write_user(user,"Use .vpic <picture> to view a pic!\n");
+     	write_user(user,"Use .vpic <picture> to view a pic!\n");
 	return;
 	}
 if ((u->hidden && (!(u->vis))) && user->level<OWNER) { write_user(user,notloggedon); return; }
@@ -13488,12 +13876,25 @@ else {
 
      fgets(line,255,fp);
 	while(!feof(fp)) {
-          write_user(u,line);
+          	write_user(u,line);
 		fgets(line,255,fp);
 		}
 	fclose(fp);
 	}
 write_user(user,"~CGPicture Has Been sent...\n");
+}
+
+void roompic_write(RM_OBJECT room, char *str)
+{
+UR_OBJECT u;
+
+u=NULL;
+for(u=user_first;u!=NULL;u=u->next) {
+	if (u->login) continue;
+	if (u->type!=USER_TYPE) continue;
+	if (u->room!=room) continue;
+	if (!(u->ignore & ROOM_PICTURE)) write_user_nr(u,str);
+	}
 }
 
 /** Send A Picture To User's Current Room **/
@@ -13503,6 +13904,10 @@ FILE *fp;
 char filename[80],line[256];
 char *name,*c;
 
+if ((user->ignore & ROOM_PICTURE)) {
+	write_user(user,"~CRYou cannot send room pictures if you're ignoreing them yourself.\n");
+	return;
+	}
 if (user->muzzled & JAILED) {
 	sprintf(text,"~FT%% ~FMYou cannot use the ~FY\"~FG%s~FY\" ~FMcommand...\n",command[com_num]);
 	write_user(user,text);
@@ -13530,7 +13935,7 @@ while(*c) {
 	}
 if (user->muzzled & FROZEN) {
 	inpstr=remove_first(inpstr);
-     sprintf(text,"\n~CM~BM[ ~FT~BMYou Send The Room~FW~BM:~FG~BM %s ~CM~BM]~RS\n",inpstr);
+	sprintf(text,"\n~CM~BM[ ~FT~BMYou Send The Room~FW~BM:~FG~BM %s ~CM~BM]~RS\n",inpstr);
 	write_user(user,text);
 	return;
 	}
@@ -13542,17 +13947,15 @@ if (user->muzzled & FROZEN) {
           return;
           }
      else {
-          sprintf(text,"\n~CM~BM[ ~FT~BMYou Send The Room~FW~BM:~FG~BM %s ~CM~BM]~RS\n",inpstr);
-          write_user(user,text);
           if (user->vis) name=user->name; else name=invisname;
-          sprintf(text,"\n~CM~BM[ ~FT~BM%s sends everyone in the room~FG~BM: ~CT%s ~CM~BM]~RS\n\n",name,inpstr);
-          write_room_except(user->room,text,user);
+          sprintf(text,"\n~CM~BM[ ~CT~BM%s~CT~BM sends everyone in the room~CG~BM: ~CT~BM%s ~CM~BM]~RS \n\n",name,inpstr);
+          roompic_write(user->room,text);
 
           /* show the file */
 
           fgets(line,255,fp);
           while(!feof(fp)) {
-               write_room(user->room,line);
+               roompic_write(user->room,line);
                fgets(line,255,fp);
                }
           fclose(fp);
@@ -14092,8 +14495,18 @@ if (user->muzzled & 1) {
 	return;
 	}
 if (word_count<2) {
-        write_user(user,"Usage:  makeinvis <user> \n");
+        write_user(user,"Usage:  makeinvis <user>\n");
         return;
+	}
+if (!strcasecmp(word[1],"room")) {	
+	if (!user->room->hidden) {
+		write_user(user,"~CRYou make the room invisible to everyone.\n");
+		sprintf(text,"~CR%s~CR chants a mystical spell and the room disapears.\n",user->recap);
+		write_room_except(user->room,text,user);
+		user->room->hidden=1;
+		return;
+		}
+	else { write_user(user,"~CRThis room is already invisible.\n"); return; }
 	}
 if (!(u=get_user(word[1]))) {
 	write_user(user,notloggedon);
@@ -14150,9 +14563,19 @@ if (word_count<2) {
      write_user(user,"Usage:  makevis <user> \n");
      return;
 	}
+if (!strcasecmp(word[1],"room")) {	
+	if (user->room->hidden) {
+		write_user(user,"~CRYou make the room visible to everyone.\n");
+		sprintf(text,"~CR%s~CR chants a mystical spell and the room re-appears.\n",user->recap);
+		write_room_except(user->room,text,user);
+		user->room->hidden=0;
+		return;
+		}
+	else { write_user(user,"~CRThis room is already visible.\n"); return; }
+	}
 if (!(u=get_user(word[1]))) {
 	write_user(user,notloggedon);
-     return;
+	return;
 	}
 if (u->vis) rname=u->recap; else rname=invisname;
 if (u==user) {
@@ -14264,8 +14687,7 @@ char filename[80],*center();
 if (!sys_allow_autopromote) return;
 
 genderset=0;
-if (user->prompt & 4 && !genderset) genderset=1;
-if (user->prompt & 8 && !genderset) genderset=1;
+if (user->gender) genderset=1;
 
 if (!user->level==NEW) return;
 sprintf(filename,"%s/%s.P",USERFILES,user->name);
@@ -14343,6 +14765,8 @@ char gender[10],text2[ARR_SIZE+1];
      for(rm=room_first;rm!=NULL;rm=rm->next) {
      for(u=user_first;u!=NULL;u=u->next) {
           if (u->login) {logins++; continue; }
+	  // If you don't want your bot showing in the .who uncomment below
+	  // if (u->type==BOT_TYPE) continue;
           if (u->room->hidden && user->level<OWNER) continue;
           if (u->type==CLONE_TYPE) cu=get_user(u->name);
 	  if (!(u->room==rm)) continue;
@@ -14360,12 +14784,12 @@ char gender[10],text2[ARR_SIZE+1];
                }
           if (u->muzzled & JAILED) strcpy(levelname,"Jailed");
           strcpy(gender,"~CGN");
-          if (u->prompt & FEMALE) strcpy(gender,"~CMF");
-          if (u->prompt & MALE)   strcpy(gender,"~CTM");
+          if (u->gender==GEN_FEMALE) strcpy(gender,"~CMF");
+          if (u->gender==GEN_MALE)   strcpy(gender,"~CTM");
           if (u->type==CLONE_TYPE) {
                strcpy(gender,"Neuter");
-               if (cu->prompt & FEMALE) strcpy(gender,"~CMF");
-               if (cu->prompt & MALE)   strcpy(gender,"~CTM");
+               if (cu->gender==GEN_FEMALE) strcpy(gender,"~CMF");
+               if (cu->gender==GEN_MALE)   strcpy(gender,"~CTM");
                }
           ++total;
           if (u->login) logins++;
@@ -14436,6 +14860,8 @@ char status[6], gender[7],*center();
      for(rm=room_first;rm!=NULL;rm=rm->next) {
      for(u=user_first;u!=NULL;u=u->next) {
           if (u->login) {logins++; continue; }
+	  // If you don't want your bot showing in the .who uncomment below
+	  //if (u->type==BOT_TYPE) continue;
           if (u->room->hidden && user->level<OWNER) continue;
           if (u->type==CLONE_TYPE) cu=get_user(u->name);
 	  if (!(u->room==rm)) continue;
@@ -14453,12 +14879,12 @@ char status[6], gender[7],*center();
                }
           if (u->muzzled & JAILED) strcpy(levelname,"Jailed");
           strcpy(gender,"Neuter");
-          if (u->prompt & FEMALE) strcpy(gender,"Female");
-          if (u->prompt & MALE)   strcpy(gender,"Male  ");
+          if (u->gender==GEN_FEMALE) strcpy(gender,"Female");
+          if (u->gender==GEN_MALE)   strcpy(gender,"Male  ");
           if (u->type==CLONE_TYPE) {
                strcpy(gender,"Neuter");
-               if (cu->prompt & FEMALE) strcpy(gender,"Female");
-               if (cu->prompt & MALE)   strcpy(gender,"Male  ");
+               if (cu->gender==GEN_FEMALE) strcpy(gender,"Female");
+               if (cu->gender==GEN_MALE)   strcpy(gender,"Male  ");
                }
           ++total;
           if (u->login) logins++;
@@ -14530,12 +14956,12 @@ for(u=user_first;u!=NULL;u=u->next) {
      if (!u->level && u->muzzled & SCUM) strcpy(levelname,"Scum");
      else {
           strcpy(levelname,level_name[u->level]);
-          if (u->prompt & FEMALE) strcpy(levelname,level_name_fem[u->level]);
+          if (u->gender==GEN_FEMALE) strcpy(levelname,level_name_fem[u->level]);
           }
      if (u->muzzled & JAILED) strcpy(levelname,"Jailed");
      strcpy(gender,"Neuter");
-     if (u->prompt & FEMALE) strcpy(gender,"Female");
-     if (u->prompt & MALE)   strcpy(gender,"Male  ");
+     if (u->gender==GEN_FEMALE) strcpy(gender,"Female");
+     if (u->gender==GEN_MALE)   strcpy(gender,"Male  ");
      sprintf(portstr,"%d",u->port);
      if (u->login) {
           sprintf(text," [Login stage %d] :   -    %2.2d    -  %4.4d    -  %s  %s\n",4 - u->login,u->socket,idle,portstr,u->site);
@@ -14552,7 +14978,8 @@ for(u=user_first;u!=NULL;u=u->next) {
 		}
      if (u->afk) strcpy(idlestr," AFK");
      else sprintf(idlestr,"%4.4d",idle);
-     sprintf(sockstr,"%2.2d",u->socket);
+     if (u->socket>0) sprintf(sockstr,"%2.2d",u->socket);
+     else strcpy(sockstr,"**");
      sprintf(text," %-15.15s :  %-5.5s %-4.4s %-4.4s %-4.4s %4.4d %-4.4s %s\n",colour_com_strip(u->recap),levelname,sockstr,noyes1[u->vis],idlestr,mins,portstr,u->site);
      write_user(user,text);
      continue;
@@ -14579,6 +15006,8 @@ if (user->high_ascii) write_user(user,"\n~CM컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴
 else write_user(user,"\n~CM------------------------------------------------------------------------------\n");
 for(u=user_first;u!=NULL;u=u->next) {
      if (u->type==CLONE_TYPE) continue;
+     // If you don't want your bot showing in the .who uncomment below
+     // if (u->type==BOT_TYPE) continue;
      if (u->login) { logins++; continue; }
      if (u->room->hidden && user->level<OWNER) continue;
      if (u->hidden) hidden++;
@@ -14649,7 +15078,9 @@ for(rm=room_first;rm!=NULL;rm=rm->next) {
 	cu=NULL;
         for(u=user_first;u!=NULL;u=u->next) {
 	  if (u->login) { logins++; continue; }
-//          if (u->type==CLONE_TYPE) cu=get_user(u->name);
+	  // If you don't want your bot showing in the .who uncomment below
+	  // if (u->type==BOT_TYPE) continue;
+//        if (u->type==CLONE_TYPE) cu=get_user(u->name);
 	  if (u->type == CLONE_TYPE) cu = u->owner;
 //  	  if (u->type==CLONE_TYPE && cu->room!=rm) continue;
 	  if (u->room!=rm) continue;
@@ -14667,12 +15098,12 @@ for(rm=room_first;rm!=NULL;rm=rm->next) {
                }
           if (u->muzzled & JAILED) strcpy(levelname,"Jailed");
           strcpy(gender,"~CGN");
-          if (u->prompt & FEMALE) strcpy(gender,"~CMF");
-          if (u->prompt & MALE)   strcpy(gender,"~CTM");
+          if (u->gender==GEN_FEMALE) strcpy(gender,"~CMF");
+          if (u->gender==GEN_MALE)   strcpy(gender,"~CTM");
           if (u->type==CLONE_TYPE) {
                strcpy(gender,"Neuter");
-               if (cu->prompt & FEMALE) strcpy(gender,"~CMF");
-               if (cu->prompt & MALE)   strcpy(gender,"~CTM");
+               if (cu->gender==GEN_FEMALE) strcpy(gender,"~CMF");
+               if (cu->gender==GEN_MALE)   strcpy(gender,"~CTM");
                }
           ++total;
           if (u->login) logins++;
@@ -14814,8 +15245,6 @@ for(u=user_first;u!=NULL;u=u->next) {
 	if (u->hidden && user->level<OWNER) continue;
 	if (u==user) continue;
 	cnt++;
-//	inpstr[0]='\0';
-//	sprintf(inpstr,"%s %s %s",cmd,u->name,temp);
 	memset(text2,0,sizeof(text2)-1);
 	snprintf(text2,(sizeof(text2)-1),"%s %s %s",cmd,u->name,temp);
 	clear_words();
@@ -15004,7 +15433,7 @@ int amt,bank;
 amt=0; bank=0;
 
 if (word_count<3) {
-     write_user(user,"Usage:  .givecash <user> <ammount>\n");
+     write_user(user,"Usage:  .cash <user> <ammount>\n");
      return;
      }
 if (!(u=get_user(word[1]))) {
@@ -15015,7 +15444,6 @@ if (u==user && user->level<OWNER) {
         write_user(user,"~CRYou cannot give yourself money!  NICE TRY!\n");
 	return;
 	}
-/*
 if ((user->level>=u->level) &&  (user->level<OWNER)) {
         write_user(user,"You cannot give money to anyone the same or higher level than you!\n");
         sprintf(text,"%s ~RStried to give you some money!  What a nice person eh?\n",user->recap);
@@ -15024,7 +15452,6 @@ if ((user->level>=u->level) &&  (user->level<OWNER)) {
 	write_syslog(text,1);
      return;
      }
-*/
 amt=atoi(word[2]);
 bank=u->bank_balance;
 /* if (bank>100 && user->level<OWNER) { write_user(user,"They've got more than $100 alreday!\n"); return; } */
@@ -15035,6 +15462,44 @@ write_user(u,text);
 sprintf(text,"~CGYou deposit ~CY$%d.00 ~CGinto %s~CG's account.\n",amt,u->recap);
 write_user(user,text);
 depositbank(u,amt,0);
+}
+
+void takecash(UR_OBJECT user)
+{
+UR_OBJECT u;
+int amt,bank;
+amt=0; bank=0;
+
+if (word_count<3) {
+     write_user(user,"Usage:  .takecash <user> <ammount>\n");
+     return;
+     }
+if (!(u=get_user(word[1]))) {
+     write_user(user,notloggedon);
+     return;
+     }
+if (u==user && user->level<OWNER) {
+        write_user(user,"~CRYou cannot take money from yourself!  That's Rather Silly...\n");
+	return;
+	}
+if ((user->level>=u->level) &&  (user->level<OWNER)) {
+        write_user(user,"You cannot take money from anyone the same or higher level than you!\n");
+        sprintf(text,"%s ~RStried to take money from you!\n",user->recap);
+	write_user(u,text);
+	sprintf(text,"%s tried to take money from %s\n",user->name,u->name);
+	write_syslog(text,1);
+     return;
+     }
+amt=atoi(word[2]);
+/* if (bank>100 && user->level<OWNER) { write_user(user,"They've got more than $100 alreday!\n"); return; } */
+if (amt<10) { write_user(user,"~CRThey don't have enough to take, they only got $10!\n"); return; }
+if (amt>100000 && user->level<OWNER) { write_user(user,"~CRUgh! More than $100,000?\n"); return; }
+sprintf(text,"~CG%s ~CGhas just taken $%d.00 out of your bank account.\n",user->recap,amt);
+write_user(u,text);
+u->bank_balance-=amt;
+bank=u->bank_balance;
+sprintf(text,"~CGYou withdrawl ~CY$%d.00 ~CGfrom %s~CG's account leaving them with %d.\n",amt,u->recap,bank);
+write_user(user,text);
 }
 
 void lendcash(UR_OBJECT user)
@@ -15065,12 +15530,12 @@ if ((user->level>=u->level) &&  user->level<OWNER) {
         }
 amt=atoi(word[2]);
 bank=user->bank_balance;
-if (amt<10) {
-        write_user(user,"~CRYou cannot lend any less than $10.00!\n");
+if (amt<1) {
+        write_user(user,"~CRYou cannot lend any less than $1.00!\n");
 	return;
 	}
-if (amt>100) {
-        write_user(user,"~CRMore than $100?  Make'em work for their money!\n");
+if (amt>10000) {
+        write_user(user,"~CRMore than $10,000?  Make'em work for their money!\n");
 	return;
 	}
 if (amt>bank) {
@@ -15450,7 +15915,7 @@ if (word_count<2) {
 	write_user(user,"Where: <year> is the year from 1 to 999 to create a calender for.\n");
 	return;
 	}
-if (!isnumber(word[1])) {
+if (!isanumber(word[1])) {
         write_user(user,"~CRCalender: Year must be between ~FM1 ~FRand ~FM9999~FR!\n");
 	return;
 	}
@@ -15520,165 +15985,206 @@ else {
 /*********************************************************************************/
 
 int do_socials(UR_OBJECT user,char *inpstr)
-
-
 {
-UR_OBJECT u;
-FILE *fp;
-char *remove_first();
-char filename[81], text2[ARR_SIZE+2], text3[ARR_SIZE+2];
-char social[6][ARR_SIZE+2];
-char line[ARR_SIZE+2],*comword=NULL;
-char *name,*vname;
-int i=0,s=0,nos=0,retcode=0,ug=0,vg=0;
-char *gen1[]={"it","him","her"};
-char *gen2[]={"its","his","her"};
-char *gen3[]={"it","he","she"};
+	UR_OBJECT u;
+	O_OBJECT o;
+	FILE *fp;
+	char *remove_first();
+	char filename[81], text2[ARR_SIZE+2], text3[ARR_SIZE+2];
+	char social[6][ARR_SIZE+2];
+	char line[ARR_SIZE+2],*comword=NULL;
+	char objname[OBJECT_NAME_LEN+1];
+	char *name; 
+	int i=0,s=0,nos=0,retcode=0,ug=0,vg=0,obj=0;
+	char *gen1[]={"it","him","her"};
+	char *gen2[]={"its","his","her"};
+	char *gen3[]={"it","he","she"};
 
-text2[0]=' ';
-memset(filename,0,sizeof(filename)-1);
-memset(text2,0,sizeof(text2)-1);
-memset(text3,0,sizeof(text3)-1);
-for (i = 0; i < 6; ++i)
-{
-	memset(social[i],0,sizeof(social[i])-1);
-}
-memset(line,0,sizeof(line)-1);
-
-if (user->level<USER || (user->muzzled & JAILED) || (user->muzzled)) { return 0; }
-if (word[0][0]=='.') comword=(word[0]+1);
-else comword=word[0];
-sprintf(filename,"%s/%s",DATAFILES,SOCIALFILE);
-if (!(fp=fopen(filename,"r"))) {
-  sprintf("do_socials(): Cannot Open Socials file: '%s'\n",filename);
-  write_syslog(text,1);
-  return 0;
-  }
-while(!feof(fp)) {
-  s++;
-  if (feof(fp)) { fclose(fp); return 0; }
-  for(i=0;i<6;++i) {
-    if (!feof(fp)) {
-    fgets(line,254,fp);
-      if (feof(fp) && i<5) {
-	/*
-	sprintf(text,"do_socials(): Socials File Is Incorrect Format Or Damaged On Line %d/%d/%d.\n",s,nos,i);
-	write_syslog(text,1);
-	write_user(user,"~CB[ ~CYM~CYoenuts ~CB]~CY: ~CRPremature End of Social Error, Contact Admin.\n");
-
-	Addict says: Don't forget to fclose() man! I'm not fixing that ;)
-	*/
-	fclose(fp);
-	return 0;
+	text2[0]=' ';
+	memset(filename,0,sizeof(filename)-1);
+	memset(text2,0,sizeof(text2)-1);
+	memset(text3,0,sizeof(text3)-1);
+	for (i = 0; i < 6; ++i)
+	{
+		memset(social[i],0,sizeof(social[i])-1);
 	}
-    line[strlen(line)-1] = '\0';
-    strcpy(social[i],line);
-    if (i==5 && (!line[0]=='*')) {
-	sprintf(text,"do_socials(): Socials File Is Incorrect Format Or Damaged On Line %d/%d/%d.\n",s,nos,i);
-	write_syslog(text,1);
-	write_user(user,"~CB[ ~CYM~CYoenuts ~CB]~CY: ~CRBroken Socials, Contact Admin.\n");
-	fclose(fp);
-	return 0;
+	memset(line,0,sizeof(line)-1);
+
+	if (user->level<USER || (user->muzzled & JAILED) || (user->muzzled))
+	{
+		return 0;
 	}
-    if (!strcmp(line,"*")) nos++;
-    }
-  }
-  /* Lets Figure Out The User's Gender */
-  ug=0;
-  if (user->prompt & 4) ug=2; /* Her */
-  if (user->prompt & 8) ug=1; /* Him */
-  if (!strncasecmp(comword,social[0],strlen(comword))) {
-    if (word_count<2) {
-        /* Let Substitute Line 1 for genders */
-	sprintf(text3,social[2],user->recap);
-        strrep(text3,"$UN",user->recap,ARR_SIZE);
-        strrep(text3,"$UG1",gen1[ug],ARR_SIZE);
-        strrep(text3,"$UG2",gen2[ug],ARR_SIZE);
-        strrep(text3,"$UG3",gen3[ug],ARR_SIZE);
-	strcat(text3,"\n");
-	write_room(user->room,text3);
-	record(user->room,text3);
-	retcode=1;
+	if (word[0][0]=='.') comword=(word[0]+1);
+	else comword=word[0];
+	sprintf(filename,"%s/%s",DATAFILES,SOCIALFILE);
+	if (!(fp=fopen(filename,"r")))
+	{
+		sprintf("do_socials(): Cannot Open Socials file: '%s'\n",filename);
+		write_syslog(text,1);
+		return 0;
+	}
+	while(!feof(fp))
+	{
+		s++;
+		if (feof(fp))
+		{
+			fclose(fp);
+			return 0;
+		}
+		for(i=0;i<6;++i)
+		{
+			if (!feof(fp))
+			{
+				fgets(line,254,fp);
+				if (feof(fp) && i<5)
+				{
+					fclose(fp);
+					return 0;
+				}
+				line[strlen(line)-1] = '\0';
+				strcpy(social[i],line);
+				if (i==5 && (!line[0]=='*'))
+				{
+					sprintf(text,"do_socials(): Socials File Is Incorrect Format Or Damaged On Line %d/%d/%d.\n",s,nos,i);
+					write_syslog(text,1);
+					write_user(user,"~CB[ ~CYM~CYoenuts ~CB]~CY: ~CRBroken Socials, Contact Admin.\n");
+					fclose(fp);
+					return 0;
+				}
+			}
+			if (!strcmp(line,"*")) nos++;
+		} // End for()
+
+		/* Lets Figure Out The User's Gender */
+		ug=user->gender;
+		if (!strncasecmp(comword,social[0],strlen(comword)))
+		{
+			if (word_count<2)
+			{
+				/* Let Substitute Line 1 for genders */
+				sprintf(text3,social[2],user->recap);
+			        strrep(text3,"$UN",user->recap,ARR_SIZE);
+			        strrep(text3,"$UG1",gen1[ug],ARR_SIZE);
+			        strrep(text3,"$UG2",gen2[ug],ARR_SIZE);
+			        strrep(text3,"$UG3",gen3[ug],ARR_SIZE);
+				strcat(text3,"\n");
+				write_room(user->room,text3);
+				/* bot */
+				bot_trigger(user,text3);
+				record(user->room,text3);
+				retcode=1;
+				fclose(fp);
+				return retcode;
+			} 
+			if (word_count>1)
+			{
+				o = find_object(user,user->room,word[1],1);	
+				u = get_user(word[1]);
+				if (u != NULL) obj=1;
+				if (o != NULL) obj=2;
+				if (u==user && !USE_SOCIALS_ON_SELF)
+				{
+			        	sprintf(text,"~CRYou cannot use ~FB'~FT%s~FB'~FR on yourself!\n",social[0]);
+					write_user(user,text);
+					retcode=1;
+					fclose(fp);
+					return retcode;
+				}
+				if (!obj)
+				{
+			  		sprintf(text3,"%s\n",social[4]);
+	        	  		/* Let Substitute Line 2 for genders */
+			   		strrep(text3,"$UN",user->recap,ARR_SIZE);
+          				strrep(text3,"$UG1",gen1[ug],ARR_SIZE);
+          				strrep(text3,"$UG2",gen2[ug],ARR_SIZE);
+          				strrep(text3,"$UG3",gen3[ug],ARR_SIZE);
+          				strrep(text3,"$TXT",inpstr,ARR_SIZE);
+	  				write_room(user->room,text3);
+	  				bot_trigger(user,text3);  /* bot */
+	  				record(user->room,text3);
+	  				retcode=1;
+	  				fclose(fp);
+	  				return retcode;
+	  			}
+/*
+			}
+			else
+			{
+*/
+				if (obj==1)
+				{
+					if (u->vis) strcpy(objname,u->name);
+					else strcpy(objname,invisname);
+				}
+				else
+				{
+					strcpy(objname,o->name);
+				}
+				vg=0;
+				if (obj==1)
+				{
+			        	if (u->gender==GEN_FEMALE) vg=2;
+		        		if (u->gender==GEN_MALE) vg=1;
+				}
+				if (obj==2) vg=o->pet;
+				if (user->vis) name=user->recap; else name=invisname;
+			 	sprintf(text3,"%s",social[3]);
+			        /* Let Substitute Line 2 for genders */
+			        strrep(text3,"$UN",name,ARR_SIZE);
+			        strrep(text3,"$UG1",gen1[ug],ARR_SIZE);
+			        strrep(text3,"$UG2",gen2[ug],ARR_SIZE);
+			        strrep(text3,"$UG3",gen3[ug],ARR_SIZE);
+			        strrep(text3,"$VN",objname,ARR_SIZE);
+			        strrep(text3,"$VG1",gen1[vg],ARR_SIZE);
+			        strrep(text3,"$VG2",gen2[vg],ARR_SIZE);
+			        strrep(text3,"$VG3",gen3[vg],ARR_SIZE);
+				inpstr=remove_first(inpstr);
+				if (!inpstr[0])
+				{
+					strcpy(text2," ");
+				}
+				else
+				{
+					strncpy(text2,inpstr,ARR_SIZE);
+				}
+			        strrep(text3,"$TXT",text2,ARR_SIZE); /* and this is why? */
+				if (strstr(social[1],"personal") && obj==1)
+				{
+					sprintf(text,"~FW-> ~RS%s\n",text3);
+					write_user(u,text);
+					record_tell(u,text);
+					sprintf(text,"~CW<~FGSent To ~FT%s~RS~CW>\n~CW-> ~RS%s\n",u->recap,text3);
+					write_user(user,text);
+					record_tell(user,text);
+					retcode=1;
+					fclose(fp);
+					return retcode;
+				}
+				else if ((obj == 1) && (u->room!=user->room))
+				{
+					sprintf(text,"~CT!! ~RS%s\n",text3);
+					write_room(NULL,text);
+					record_shout(text);
+					retcode=1;
+					fclose(fp);
+					return retcode;
+				}
+				else
+				{
+					sprintf(text,"%s\n",text3);
+					write_room(user->room,text);
+					bot_trigger(user,text);	
+					record(user->room,text);
+					retcode=1;
+					fclose(fp);
+					return retcode;
+				}
+			}
+		} // End - if strncasecmp
+	} // End - while()
+	if (retcode) {  fclose(fp);  }
 	fclose(fp);
 	return retcode;
-	}
-    if (word_count>1) {
-	if (!(u=get_user(word[1]))) {
-	  sprintf(text3,"%s\n",social[4]);
-          /* Let Substitute Line 2 for genders */
-          strrep(text3,"$UN",user->recap,ARR_SIZE);
-          strrep(text3,"$UG1",gen1[ug],ARR_SIZE);
-          strrep(text3,"$UG2",gen2[ug],ARR_SIZE);
-          strrep(text3,"$UG3",gen3[ug],ARR_SIZE);
-          strrep(text3,"$TXT",inpstr,ARR_SIZE);
-	  write_room(user->room,text3);
-	  record(user->room,text3);
-	  retcode=1;
-	  fclose(fp);
-	  return retcode;
-	  }
-      else {
-	if (u==user && !USE_SOCIALS_ON_SELF) {
-          sprintf(text,"~CRYou cannot use ~FB'~FT%s~FB'~FR on yourself!\n",social[0]);
-	  write_user(user,text);
-	  retcode=1;
-	  fclose(fp);
-	  return retcode;
-	  }
-	vg=0;
-        if (u->prompt & 4) vg=2;
-        if (u->prompt & 8) vg=1;
-	if (user->vis) name=user->recap; else name=invisname;
-	if (u->vis) vname=u->recap; else vname=invisname;
-	if (u->hidden) { write_user(user,notloggedon); return 1; }
-	sprintf(text3,"%s",social[3]);
-        /* Let Substitute Line 2 for genders */
-        strrep(text3,"$UN",name,ARR_SIZE);
-        strrep(text3,"$UG1",gen1[ug],ARR_SIZE);
-        strrep(text3,"$UG2",gen2[ug],ARR_SIZE);
-        strrep(text3,"$UG3",gen3[ug],ARR_SIZE);
-        strrep(text3,"$VN",vname,ARR_SIZE);
-        strrep(text3,"$VG1",gen1[vg],ARR_SIZE);
-        strrep(text3,"$VG2",gen2[vg],ARR_SIZE);
-        strrep(text3,"$VG3",gen3[vg],ARR_SIZE);
-	inpstr=remove_first(inpstr);
-	if (!inpstr[0]) { strcpy(text2," "); }
-	else { strncpy(text2,inpstr,ARR_SIZE); }
-        strrep(text3,"$TXT",text2,ARR_SIZE); /* and this is why? */
-	if (strstr(social[1],"personal")) {
-           sprintf(text,"~FW-> ~RS%s\n",text3);
-	   write_user(u,text);
-           record_tell(u,text);
-           sprintf(text,"~CW<~FGSent To ~FT%s~RS~CW>\n~CW-> ~RS%s\n",u->recap,text3);
-	   write_user(user,text);
-	   record_tell(user,text);
-	   retcode=1;
-	   fclose(fp);
-	   return retcode;
-	   }
-        else if (u->room!=user->room) {
-           sprintf(text,"~CT!! ~RS%s\n",text3);
-	   write_room(NULL,text);
-	   record_shout(text);
-	   retcode=1;
-	   fclose(fp);
-	   return retcode;
-	   }
-	else {
-           sprintf(text,"%s\n",text3);
-	   write_room(user->room,text);
-	   record(user->room,text);
-           retcode=1;
-	   fclose(fp);
-	   return retcode;
-	   }
-	}
-      }
-    }
-  if (retcode) break;
-  }
-fclose(fp);
-return retcode;
 }
 
 void list_socials(UR_OBJECT user)
@@ -15689,7 +16195,6 @@ char social[6][255];
 char line[255];
 int i,s,nos,cnt;
 
-// if (user->level<MEMBER) return;
 i=0; s=0; nos=0; cnt=0;
 sprintf(filename,"%s/%s",DATAFILES,SOCIALFILE);
 if (!(fp=fopen(filename,"r"))) {
@@ -15717,10 +16222,10 @@ while(!feof(fp)) {
 	if (social[0]) {
 		cnt++;
 		if (cnt==1) write_user(user,"  ");
-		if (strstr(social[1],"personal")) sprintf(text,"~FB* ~FT%-15.15s~RS  ",social[0]);
-		else if (strstr(social[1],"public")) sprintf(text,"~FB! ~FM%-15.15s~RS  ",social[0]);
+		if (strstr(social[1],"personal")) sprintf(text,"~CB* ~FT%-15.15s~RS  ",social[0]);
+		else if (strstr(social[1],"public")) sprintf(text,"~CB! ~FM%-15.15s~RS  ",social[0]);
 		else sprintf(text,"  ~FG%-15.15s  ",social[0]);
-		write_user(user,text);
+		write_user_nr(user,text);
 		if (cnt==4) { write_user(user,"\n"); cnt=0; }
 		}
 	for(i=0;i<6;++i) social[i][0]='\0';
@@ -15729,10 +16234,10 @@ if (cnt>0) write_user(user,"\n");
 fclose(fp);
 if (user->high_ascii) write_user(user,"~CB컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴\n");
 else write_user(user,"~CB----------------------------------------------------------------------------\n");
-sprintf(text,"~CM There are currently ~FG%d~FM socials available to you.  ! = Public, * = Personal\n",nos);
+sprintf(text,"~CM There are currently ~CG%d~CM socials available to you.  ! = Public, * = Personal\n",nos);
 write_user(user,text);
-write_user(user,"~CG Usage  ~FW: ~FT.~FM<~FYsocialname~FM> ~FB[~FM<~FRusername~FM>~FB] [~FM<~FRtext~FM>~FB]\n");
-write_user(user,"~CG Example~FW: ~FT.~FYpoke ~FB/ ~FT.~FYpoke ~FM<~FRusername~FM> ~FB/ ~FT.~FYpoke ~FM<~FRtext~FM>\n");
+write_user(user,"~CG Usage  ~CW: ~CT.~CM<~CYsocialname~CM> ~CB[~CM<~CRusername~CM>~CB] [~CM<~CRtext~CM>~CB]\n");
+write_user(user,"~CG Example~CW: ~CT.~CYbite ~CB/ ~CT.~CYbite ~CM<~CRusername~CM> ~CB/ ~CT.~CYbite ~CM<~CRtext~CM>\n");
 if (user->high_ascii) write_user(user,"~CB컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴\n");
 else write_user(user,"~CB----------------------------------------------------------------------------\n");
 }
@@ -16146,7 +16651,7 @@ if (!done_editing) {
 	return;
 	}
 /* Write The Editor Contents To A File */
-sprintf(filename,"%s/%s.email",MAILSPOOL,user->name);
+sprintf(filename,"%s/%s.email",TEMPFILES,user->name);
 if (!(fp=fopen(filename,"w"))) {
 	sprintf(text,"%s: Unable to spool E-mail to send it!\n",syserror);
 	write_user(user,text);
@@ -16246,7 +16751,7 @@ if (word_count<2) {
      return;
      }
 if ((u=get_user(word[1]))!=NULL) {    /* Online user */
-	if (!isnumber(u->icq)) {
+	if (!isanumber(u->icq)) {
              write_user(user,"\n~CRSorry, user does not have a valid ICQ # Set.\n");
              write_user(user,"~CRThey must have first used .set icq <their icq #>\n");
 	     return;
@@ -16288,7 +16793,7 @@ strcpy(icq_num,u->icq);
 strcpy(reciever,u->name);
 destruct_user(u);
 destructed=0;
-if (!isnumber(icq_num)) {
+if (!isanumber(icq_num)) {
         write_user(user,"\n~CRSorry, user does not have a valid ICQ # Set.\n");
         write_user(user,"~CRThey must have first used .set icq <their icq #>\n");
 	return;
@@ -16357,12 +16862,12 @@ strcat(name,"~RS");
 
 /* Get Levelname Based On Gender */
 strncpy(levname,level_name[user->level],30);
-if (user->prompt & FEMALE) strncpy(levname,level_name_fem[user->level],30);
+if (user->gender==GEN_FEMALE) strncpy(levname,level_name_fem[user->level],30);
 
 /* Convert Gender To Readable Form */
 strncpy(gender,"It",10);
-if (user->prompt & MALE) strncpy(gender,"Gentalman",10);
-if (user->prompt & FEMALE) strncpy(gender,"Lady",10);
+if (user->gender==GEN_MALE) strncpy(gender,"Gentalman",10);
+if (user->gender==GEN_FEMALE) strncpy(gender,"Lady",10);
 
 /* Time and Date Conversions */
 if (thour>12) { hour=(thour-12); ampm=1; }
@@ -16521,7 +17026,7 @@ return 1;
 void sreboot_com(UR_OBJECT user)
 {
 
-if (word_count<1 && !isnumber(word[1])) {
+if (word_count<1 && !isanumber(word[1])) {
 	write_user(user,"Usage: .sreboot [<secs/-cancel>]\n");
 	return;
 	}
@@ -16533,7 +17038,7 @@ if (!rs_which) {
         write_user(user,"~CR The shutdown countdown is currently active, cancel it first.\n");
 	return;
 	}
-if (!strncasecmp(word[1],"-cancel",2)) {
+if (!strncasecmp(word[1],"cancel",2)) {
 	if (rs_which!=2) {
                 write_user(user,"~CM The seamless reboot countdown isn't currently active.\n");
 		return;
@@ -16559,8 +17064,8 @@ else {
 	rs_countdown=atoi(word[1]);
 	rs_which=2;
 	}
-write_user(user,"~BP~CB[~CRWarning~CB] ~CT- ~CRThis will reboot the talker.\n");
-write_user(user,"~CM            Are you sure you want to do this?~FT:~RS ");
+write_user(user,"~CB[~CRWarning~CB]~CW: ~CRThis will reboot the talker.~BP\n");
+write_user(user,"~CB[~CRWarning~CB]~CW: ~CRAre you sure you want to do this?~RS ");
 user->misc_op=17;
 no_prompt=1;
 }
@@ -16674,6 +17179,8 @@ int build_loggedin_users_info(UR_OBJECT user)
 UR_OBJECT u;
 FILE *fp;
 
+/* bot */
+destroy_bot();
 for (u=user_first;u!=NULL;u=u->next) {
         if (u->malloc_start!=NULL) {
                 write_user(u,"\n~CB[~FTEDITOR~FB]~FT: ~FRSeamless reboot requested close, I Must Exit Now, Sorry.\n");
@@ -16870,6 +17377,8 @@ while (!feof(fp1)) {
 			rm=get_room(rmname);
 			if (rm) { u->room=rm; load_room_preferences(rm); }
 			else u->room=room_first;
+			/* Load Their Objects */
+			if (user_object_store(u->name,0,u)) { write_user(u,"~CB[~CYM~CYoenuts~CB]~CT: ~CGYour objects have been restored.\n"); }
 			}
 		fclose(fp2);
 		}
@@ -17322,6 +17831,8 @@ for(rm=room_first;rm!=NULL;rm=rm->next) {
 for(u=user_first;u!=NULL;u=u->next) {
   if (u->type==CLONE_TYPE) continue;
   if (u->login) continue;
+  // If you don't want your bot showing in the .who uncomment below
+  // if (u->type==BOT_TYPE) continue;
   if (!(u->room==rm)) continue;
   if (u->room->hidden && user->level<OWNER) continue;
   if (u->hidden && user->level<OWNER) continue;
@@ -17346,8 +17857,8 @@ for(u=user_first;u!=NULL;u=u->next) {
   else if (idle>=30) strcpy(idlestr,"~FYIDLE~RS");
   else sprintf(idlestr,"%d/%d",mins,idle);
   ugender=0;
-  if (u->prompt & 4) ugender=2;
-  if (u->prompt & 8) ugender=1;
+  if (u->gender==GEN_FEMALE) ugender=2;
+  if (u->gender==GEN_MALE) ugender=1;
   strncpy(ucaste,bdsm_types[u->bdsm_type],1);
   strncpy(ulevel,level_name[u->level],1);
   sprintf(text,"%-*.*s~RS  ~CG%-1.1s~RS/%-1.1s : %-*.*s : ~CY%-1.1s~RS/~FT%-1.1s~RS/%s\n",(41+cnt*3),(44+cnt*3),line,sex2[ugender],ulevel,(12+rcnt*3),(12+rcnt*3),rname,ucaste,ny2[uplaying],idlestr);
@@ -17379,6 +17890,8 @@ write_user(user,text);
 for(rm=room_first;rm!=NULL;rm=rm->next) { 
 for(u=user_first;u!=NULL;u=u->next) {
   if (u->type==CLONE_TYPE) continue;
+  // If you don't want your bot showing in the .who uncomment below
+  // if (u->type==BOT_TYPE) continue;
   if (u->login) continue;
   if (u->room->hidden && user->level<OWNER) continue;
   if (u->hidden && user->level<OWNER) continue;
@@ -17400,8 +17913,8 @@ for(u=user_first;u!=NULL;u=u->next) {
   else if (u->malloc_start!=NULL) sprintf(idlestr,"%5.5d/%3.3d (edit)",mins,idle);
   else sprintf(idlestr,"%5.5d/%3.3d mins.",mins,idle);
   ugender=0;
-  if (u->prompt & 4) ugender=2;
-  if (u->prompt & 8) ugender=1;
+  if (u->gender==GEN_FEMALE) ugender=2;
+  if (u->gender==GEN_MALE) ugender=1;
   if (!u->vis) strcat(idlestr,"I"); 
   if (u->room->hidden) strcat(idlestr,"&");
   if (u->hidden) strcat(idlestr,"#");
@@ -17436,6 +17949,8 @@ write_user(user,"~CR+-==--==--==--==--==--==--==--==--==--==--==--==--==--==--==
 for(rm=room_first;rm!=NULL;rm=rm->next) {
 for(u=user_first;u!=NULL;u=u->next) {
   if (u->type==CLONE_TYPE) continue;
+  // If you don't want your bot showing in the .who uncomment below
+  // if (u->type==BOT_TYPE) continue;
   if (u->login) continue;
   if (u->room->hidden && user->level<OWNER) continue;
   if (u->hidden && user->level<OWNER) continue;
@@ -17496,6 +18011,8 @@ write_user(user,"~CR@~FG}-'--,--'--,--'--,-{~CR@@~FG}-'--,--'--,--{~CR@@~FG}--'-
 for(rm=room_first;rm!=NULL;rm=rm->next) {
 for(u=user_first;u!=NULL;u=u->next) {
   if (u->type==CLONE_TYPE) continue;
+  // If you don't want your bot showing in the .who uncomment below
+  // if (u->type==BOT_TYPE) continue;
   if (u->login) continue;
   if (u->room->hidden && user->level<OWNER) continue;
   if (u->hidden && user->level<OWNER) continue;
@@ -17521,8 +18038,8 @@ for(u=user_first;u!=NULL;u=u->next) {
   else if (idle>=30) strcpy(idlestr,"~FYIDLE~RS");
   else sprintf(idlestr,"%d/%d",mins,idle);
   ugender=0;
-  if (u->prompt & 4) ugender=2;
-  if (u->prompt & 8) ugender=1;
+  if (u->gender==GEN_FEMALE) ugender=2;
+  if (u->gender==GEN_MALE) ugender=1;
   strncpy(ucaste,bdsm_types[u->bdsm_type],1);
   strncpy(ulevel,level_name[u->level],1);
   sprintf(text," %-*.*s~RS  ~CG%-1.1s~RS/%-1.1s ~RS: %-*.*s ~RS: ~CY%-1.1s~RS/~FT%-1.1s~RS/%s\n",(40+cnt*3),(40+cnt*3),line,sex2[ugender],ulevel,(12+rcnt*3),(12+rcnt*3),rname,ucaste,ny2[uplaying],idlestr);
@@ -17662,8 +18179,8 @@ if (!points) { write_user(user,"No points awarded. (points=0)\n");
 	}
 
 strcpy(gender,"their");
-if (u->prompt & 4) strcpy(gender,"her");
-if (u->prompt & 8) strcpy(gender,"his");
+if (u->gender==GEN_FEMALE) strcpy(gender,"her");
+if (u->gender==GEN_MALE) strcpy(gender,"his");
 
 if (word[3][0]=='B' || word[3][0]=='b') { sprintf(text,"~FG%s ~RS~FTwas awarded %d bonus points for %s answer.\n\n",u->recap,points,gender); }
 else { sprintf(text,"~FG%s ~RS~FTwas awarded %d points for %s answer.\n\n",u->recap,points,gender); }
@@ -17730,10 +18247,9 @@ return 0;
 /* List who has keys for the current room */
 void list_keys(UR_OBJECT user)
 {
-
 char filename[81];
 
-if ((user->room->access & PERSONAL) && !strcasecmp(user->room->owner,user->name)) {
+if (!strcasecmp(user->room->owner,user->name) || user->level<OWNER) {
 	write_user(user,"~CTUsers who have keys to this room:\n");
 	write_user(user,"~CT---------------------------------\n\n");
 	sprintf(filename,"%s/%s.key",DATAFILES,user->room->name);
@@ -17746,10 +18262,10 @@ if ((user->room->access & PERSONAL) && !strcasecmp(user->room->owner,user->name)
 	return;
 	}
 else if (user->level<OWNER) {
-	write_user(user,"~CRThis isn't your room, so you cannot find out who has keys to it.\n");
+	write_user(user,"~CRYou do not own this room, so you cannot find out who has keys to it.\n");
 	return;
 	}
-else {  write_user(user,"~CRThis is either not a personal room, or not your personal room.\n");
+else {  write_user(user,"~CRYou don't own this room.\n");
         write_user(user,"Go to your personal room if you wish to see who has keys to it.\n");
         return;
         }
@@ -17775,7 +18291,7 @@ if (!(fp=fopen(filename,"r"))) return 0;
 
 /* 30 integers */
 
-fscanf(fp,"%d %d %d %d %d %d\n",&temp1,&temp2,&temp3,&temp4,&temp5,&temp6);
+fscanf(fp,"%d %d %d %d %d %d\n",&room->guarddog,&temp2,&temp3,&temp4,&temp5,&temp6);
 fscanf(fp,"%d %d %d %d %d %d\n",&temp1,&temp2,&temp3,&temp4,&temp5,&temp6);
 fscanf(fp,"%d %d %d %d %d %d\n",&temp1,&temp2,&temp3,&temp4,&temp5,&temp6);
 fscanf(fp,"%d %d %d %d %d %d\n",&temp1,&temp2,&temp3,&temp4,&temp5,&temp6);
@@ -17797,7 +18313,10 @@ line[strlen(line)-1]=0;
 strncpy(room->owner2,line,USER_NAME_LEN);
 fgets(line,ARR_SIZE,fp);
 line[strlen(line)-1]=0;
-strncpy(tempstr,line,5);
+strncpy(room->guarddog_name,line,USER_RECAP_LEN);
+fgets(line,ARR_SIZE,fp);
+line[strlen(line)-1]=0;
+strncpy(room->guarddog_phrase,line,GUARD_PHRASE_LEN);
 fgets(line,ARR_SIZE,fp);
 line[strlen(line)-1]=0;
 strncpy(tempstr,line,5);
@@ -17876,11 +18395,11 @@ strncpy(tempstr,line,5);
 fgets(line,ARR_SIZE,fp);
 line[strlen(line)-1]=0;
 strncpy(tempstr,line,5);
-fgets(line,ARR_SIZE,fp);
-line[strlen(line)-1]=0;
-strncpy(tempstr,line,5);
-
 fclose(fp);
+if (room_object_store(room->name,0,room)) { 
+	sprintf(text,"Loaded Objects For Room: %s\n",room->name);
+	write_syslog(text,1);
+	}
 return 1;
 }
 
@@ -17908,7 +18427,7 @@ if (!type) {
 	for(i=0;i<5;i++) { fprintf(fp,"0 0 0 0 0 0\n"); }
 	}
 else {
-	fprintf(fp,"%d %d %d %d %d %d\n",temp,temp,temp,temp,temp,temp);
+	fprintf(fp,"%d %d %d %d %d %d\n",room->guarddog,temp,temp,temp,temp,temp);
 	fprintf(fp,"%d %d %d %d %d %d\n",temp,temp,temp,temp,temp,temp);
 	fprintf(fp,"%d %d %d %d %d %d\n",temp,temp,temp,temp,temp,temp);
 	fprintf(fp,"%d %d %d %d %d %d\n",temp,temp,temp,temp,temp,temp);
@@ -17925,8 +18444,8 @@ if (type==0) {
 else {
 	fprintf(fp,"%s\n",room->recap);
 	fprintf(fp,"%s\n",room->owner2);
-	fprintf(fp,"%s\n",tempstr);
-	fprintf(fp,"%s\n",tempstr);
+	fprintf(fp,"%s\n",room->guarddog_name);
+	fprintf(fp,"%s\n",room->guarddog_phrase);
 	fprintf(fp,"%s\n",tempstr);
 	fprintf(fp,"%s\n",tempstr);
 	fprintf(fp,"%s\n",tempstr);
@@ -18075,7 +18594,7 @@ if (!user->vis) {
    write_user(user,"Don't be a cheap ass! Become visable first. Maybe they're idle cause you're invis!\n");
    return;
    }
-   /*  Moenuts doesn't really have an idle room as of yet... Maybe someday :)
+/*  Moenuts doesn't really have an idle room as of yet... Maybe someday :)
 if (u->room==rm) {
    sprintf(text,"You can't steal from someone in the %s~RS room!\n",rm->recap);
    write_user(user,text);
@@ -18083,7 +18602,7 @@ if (u->room==rm) {
    }
    */
 idle=(int)(time(0) - u->last_input)/60;
-if (idle<=10) {
+if (idle<10) {
    sprintf(text,"%s ~RShasn't been idling long enough.\n",u->recap);
    write_user(user,text);
    return;
@@ -18092,6 +18611,17 @@ if (u->bank_balance<1) {
    write_user(user,"You can't steal from someone with no money.\n");
    return;
    }
+if (u->room->access==PRIVATE || u->room->access==FIXED_PRIVATE) {
+	write_user(user,"~FRThe police are watching your every move, you shouldn't try and steal here...\n");
+	sprintf(text,"%s wanted to steal from you, but is afraid of getting busted by the police.\n",user->recap);
+	write_user(u,text);
+	return;
+	}
+if (u->room->guarddog) {
+	sprintf(text,"%s~CR sneaks upto %s~CR and tries to steal from them, but is confronted by %s~CR, the room's guard dog.\n",user->recap,u->recap,user->room->guarddog_name);
+	write_room(u->room,text);
+	return;
+	}
 if ((int)u->stealtime + 5*60 > (int)time(0)) {
    sprintf(text,"%s~RS has been stolen from recently!\n",u->recap);
    write_user(user,text);
@@ -18105,20 +18635,20 @@ if ((int)u->attempttime + 3*60 > (int)time(0)) {
 srand(time(0));
 temp=rand()%75;
 if (temp<45) {
-/*   if (!strcasecmp(user->name,"NOFX")) {
-	user_money_stolen=1;
-	}
-   else { */
-	user_money_stolen=rand()%200;
-/*	} */
+   user_money_stolen=rand()%(100*u->level);
    if (user_money_stolen > u->bank_balance) user_money_stolen = u->bank_balance;
-      u->bank_balance-=user_money_stolen;
       user->bank_balance+=user_money_stolen;
+      user->stolen+=user_money_stolen;
       u->stealtime = time(0);
       sprintf(text,"%s ~RSjust stole $%d from you. Don't idle!\n",user->recap,user_money_stolen);
       write_user(u,text);
-      sprintf(text,"%s ~RSnotices %s ~RSidling, and steals $%d from them.\n",user->recap,u->recap,user_money_stolen);
+      sprintf(text,"%s~CR notices %s ~CRidling, and steals ~CY$~CG%d.00 ~CRfrom them.\n",user->recap,u->recap,user_money_stolen);
       write_room_except(u->room,text,u);
+      if (u->room==room_first) {
+	sprintf(text,"~CMSeeing this is the %s~CM, they don't lose the money.\n",u->room->recap);
+	write_user(user,text);
+	}
+      else { u->bank_balance-=user_money_stolen; }
       return;
       }
    else {
@@ -18216,30 +18746,17 @@ credit_timer=0;
 for(u=user_first;u!=NULL;u=u->next) {
 	if (u->login) continue;
 	if (u->type==CLONE_TYPE) continue;
+	if (u->type==BOT_TYPE) continue; /* Bot don't need affpoints */
+	/* Lets Use This Function For The User's Affection Timer too :)
+         - Thanks Squirt for the idea */
+	u->afftime++;
 	idle=0;
 	idle=(int)(time(0) - u->last_input)/60;
 	mins=(int)(time(0) - u->last_login)/60;
 	credits=CREDIT_RATE;
-	if (idle>MAX_IDLE_TIME) {
-#ifdef DEBUG
-	//	sprintf(text,"[DEBUG]: %s is idle for more than %d minutes. (Idle: %d), No credits received.\n",u->name,MAX_IDLE_TIME,idle);
-	//	write_room(NULL,text);
-#endif
-		continue;
-		}
-	if (u->afk) {
-
-#ifdef DEBUG
-	//	sprintf(text,"[DEBUG]: %s is AFK and does not receive any credits.\n",u->name);
-	//	write_room(NULL,text);
-#endif
-		continue;
-		}
+	if (idle>MAX_IDLE_TIME) continue; /* Idle People Don't Get Credits */
+	if (u->afk) continue;   /* AFK People don't get credits */
 	u->bank_balance+=credits;
-#ifdef DEBUG
-	// sprintf(text,"[DEBUG]: %s receives %d credits, their bank balance is %d  [%d Mins]\n",u->name,credits,u->bank_balance,mins);
-	// write_room(NULL,text);
-#endif
 	}
 	return;
 }
@@ -18271,10 +18788,10 @@ if (!strcmp(inpstr,"reset")) {
         return;
         }
 
-if (!strcmp(inpstr,"1"))   mode = 2;
-if (!strcmp(inpstr,"yes")) mode = 2;
-if (!strcmp(inpstr,"0"))   mode = 1;
-if (!strcmp(inpstr,"no"))  mode = 1;
+if (!strcmp(inpstr,"1"))       mode = 2;
+if (!strcasecmp(inpstr,"yes")) mode = 2;
+if (!strcmp(inpstr,"0"))       mode = 1;
+if (!strcasecmp(inpstr,"no"))  mode = 1;
 
 	if (!mode) {
         sscanf(inpstr, "%s", other_user);
@@ -18590,8 +19107,8 @@ void paintball_reload(UR_OBJECT user)
 
 char usergender[4];
 strcpy(usergender,"its");
-if (user->prompt & 4) strcpy(usergender,"her");
-if (user->prompt & 8) strcpy(usergender,"his");
+if (user->gender==GEN_FEMALE) strcpy(usergender,"her");
+if (user->gender==GEN_MALE) strcpy(usergender,"his");
 
 if (user->room==room_first) {
         write_user(user,"~CWCan't reload in the main room, sorry!\n");
@@ -18790,3 +19307,1620 @@ sprintf(text,"~CTYou set your text color to~CW: ~CG[~CY%d~CG] ~CM- %s\n\n",user-
 write_user(user,text);
 return;
 }
+
+void convert2_drunk(char *str)
+{
+	char	*str2 = NULL;
+	int	i, p, len;
+
+	i = p = 0;
+        len = strlen(str);
+
+
+	/* prevent buffer overflow. */
+	if (strlen(str) > ARR_SIZE + 500)
+		return;
+
+	str2 = (char *)malloc(ARR_SIZE*2);
+	strcpy(str2,str);
+	*str = '\0';
+	for (i = 0, p = 0; i < len; i++,p++)
+	{
+		switch(str2[i])
+		{
+			case 'a':
+			case 's':
+				  if (str2[i+1]!='h')
+				  {
+                                        str[(p++)] = str2[i];
+                                        str[p] = 'h';
+                                        if (str2[i] == str2[i+1]) i++;
+                                  }
+                                  else str[i] = str2[i];  break;
+			case '\'':
+                                  str[p] = str[p-1];
+                                  str[p-1] = str2[i];  break;
+			case 'r':
+                                  if ((1+(int) (10.0*rand()/(RAND_MAX+1.0)))<5)
+                                  {
+                                        str[(p++)] = str2[i];
+                                        str[p] = str2[i];
+                                  }
+                                  else str[p] = str2[i];  break;
+			case 'w':
+                                  if ((1+(int) (10.0*rand()/(RAND_MAX+1.0)))<5)
+                                  {
+                                        str[(p++)] = str2[i];
+                                        str[p] = 'u';
+                                  }
+                                  else str[p] = str2[i];
+                                  break;
+			case 'e':
+                                  if (str2[i-2] == 't' && str2[i-1] == 'h')
+                                        str[p] = '\'';
+                                  else str[p] = str2[i];
+                                  break;
+			default:
+                                  str[p] = str2[i];
+                                  break;
+          	}
+	}
+	str[p] = '\0';
+	free(str2);
+}
+
+/*** Warn A User ***/
+void warn_user(UR_OBJECT user,char *inpstr)
+{
+UR_OBJECT u;
+
+if (word_count<3) {
+     	write_user(user,"Usage:  .warn <user> <message>\n");
+	return;
+     	}
+if (!(u=get_user(word[1]))) {
+	write_user(user,notloggedon);
+	return;
+	}
+if (u==user) {
+	write_user(user,"Trying to warn yourself?\n");
+	return;
+	}
+inpstr=remove_first(inpstr);
+if (u->afk) {
+	/* Tell the caller that the offending user is AFK */
+	if (u->afk && u->afk_mesg[0]) sprintf(text,"~CR%s ~FGis ~FMAFK: %s\n",u->recap,u->afk_mesg);
+	else sprintf(text,"%s is AFK at the moment.\n",u->recap);
+	write_user(user,text);
+        sprintf(text,"~CTMESSAGE RECORDED! ~RS%s will get a mesage to do a .revtell.\n",u->recap);
+	write_user(user,text);
+	sprintf(text,"~FR[~CR!!~FR]~CW: ~CRYou warn %s~CW: ~CY%s\n",u->recap,inpstr);
+	record_tell(user,text);
+        /* Now Send Message To The Offending User */
+ 	sprintf(text,"~FR[~CR!!~FR]~CW: %s~CR WARNS you~CW: ~CR%s\n",user->recap,inpstr);
+	if (!user->vis || user->hidden) sprintf(text,"~FR[~CR!!~FR]~CW: ~CRA Staff Member WARNS you~CW: ~CR%s\n",inpstr);
+	record_tell(u,text);
+        write_user(u,text);
+	sprintf(text,"~FR[~CR!!~FR]~CW: %s ~CRWARNS %s~CW: %s\n",user->recap,u->recap,inpstr);
+	write_arrestrecord(u,text,1);
+	write_syslog(text,1);
+        write_level(WIZ,5,text,NULL);
+	u->chkrev=1;
+	return;
+	}
+if (u->malloc_start!=NULL) {
+	sprintf(text,"%s is using the editor at the moment.\n",u->recap);
+	write_user(user,text);
+        sprintf(text,"~CTMESSAGE RECORDED! ~RS%s will get a mesage to do a .revtell.\n",u->recap);
+	write_user(user,text);
+	sprintf(text,"~FR[~CR!!~FR]~CW: ~CRYou warn %s~CW: ~CY%s\n",u->recap,inpstr);
+	record_tell(user,text);
+        /* Now Send Message To The Offending User */
+ 	sprintf(text,"~FR[~CR!!~FR]~CW: %s~CR WARNS you~CW: ~CR%s\n",user->recap,inpstr);
+	if (!user->vis || user->hidden) sprintf(text,"~FR[~CR!!~FR]~CW: ~CRA Staff Member WARNS you~CW: ~CR%s\n",inpstr);
+	record_tell(u,text);
+        write_user(u,text);
+        sprintf(text,"~FR[~CR!!~FR]~CW: %s ~CRWARNS %s~CW: %s\n",user->recap,u->recap,inpstr);
+	write_arrestrecord(u,text,1);
+	write_syslog(text,1);
+        write_level(WIZ,5,text,NULL);
+	u->chkrev=1;
+	return;
+	}
+   sprintf(text,"~FR[~CR!!~FR]~CW: ~CRYou warn %s~CW: ~CY%s\n",u->recap,inpstr);
+   record_tell(user,text);
+   /* Now Send Message To The Offending User */
+   sprintf(text,"~FR[~CR!!~FR]~CW: %s~CR WARNS you~CW: ~CR%s\n",user->recap,inpstr);
+   if (!user->vis || user->hidden) sprintf(text,"~FR[~CR!!~FR]~CW: ~CRA Staff Member WARNS you~CW: ~CR%s\n",inpstr);
+   record_tell(u,text);
+   write_user(u,text);
+   sprintf(text,"~FR[~CR!!~FR]~CW: %s ~CRWARNS %s~CW: %s\n",user->recap,u->recap,inpstr);
+   write_arrestrecord(u,text,1);
+   write_syslog(text,1);
+   write_level(WIZ,5,text,NULL);
+}
+
+void set_guarddog(UR_OBJECT user,char *inpstr)
+{
+
+if (strcasecmp(user->room->owner,user->name)) {
+	write_user(user,"~CRYou must be in your own room to set your guard dog.\n");
+	return;
+	}
+if (word_count<2) {
+	write_user(user,"Usage: guarddog <on/off/name/phrase/use> [<name/phrase>]\n");
+	return;
+	}
+if (!strncasecmp(word[1],"on",2)) {
+	if (user->room->guarddog) { write_user(user,"Your guarddog is already guarding this room.\n"); }
+	else {	user->room->guarddog=1;
+		write_room(user->room,"A guard dog sits near the door quietly guarding the room of intruders.\n");
+		if (save_room_preferences(user->room,1)) { write_user(user,"Saving Room Preferences...\n"); }
+		}
+	return;
+	}
+if (!strncasecmp(word[1],"off",2)) {
+	if (!user->room->guarddog) { write_user(user,"Your guarddog is not guarding this room anyways.\n"); }
+	else {	user->room->guarddog=0;
+		write_room(user->room,"A guard dog walks off to his cage to sleep.\n");
+		if (save_room_preferences(user->room,1)) { write_user(user,"Saving Room Preferences...\n"); }
+		}
+	return;
+	}
+if (!strcasecmp(word[1],"name")) {
+	strncpy(user->room->guarddog_name,word[2],USER_RECAP_LEN);
+	sprintf(text,"~CMYou have named your guard dog~CW:~RS %s\n",user->room->guarddog_name);
+	write_user(user,text);
+	sprintf(text,"~CM%s~CM has named their guard dog~CW:~RS %s\n",user->recap,user->room->guarddog_name);
+	write_room_except(user->room,text,user);
+	if (save_room_preferences(user->room,1)) { write_user(user,"Saving Room Preferences...\n"); }
+	return;
+	}
+if (!strcasecmp(word[1],"phrase")) {
+	inpstr=remove_first(inpstr);
+	strncpy(user->room->guarddog_phrase,inpstr,GUARD_PHRASE_LEN);
+	sprintf(text,"~CMYour guard dog's guarding phrase is~CW: %s\n",user->room->guarddog_phrase);
+	write_user(user,text);
+	if (save_room_preferences(user->room,1)) { write_user(user,"Saving Room Preferences...\n"); }
+	return;
+	}
+if (!strcasecmp(word[1],"use")) {
+	if (user->room->guarddog_phrase[0] || strcasecmp(user->room->guarddog_phrase,"None")) { write_room(user->room,user->room->guarddog_phrase); write_room(user->room,"\n"); }
+	else { write_user(user,"~CTYou must set a phrase first using .guarddog phrase <phrase>\n"); }
+	return;
+	}
+	write_user(user,"Usage: guarddog <on/off/name/phrase> [<name/phrase>]\n");
+}
+
+/*** Do the files ***/
+void info_files(UR_OBJECT user)
+{
+FILE *fp;
+char filename[80], line[ARR_SIZE+2];
+char *c;
+
+if (word_count<2) { 
+	write_user(user,"Usage: .files <topic>\n");
+	return; }
+
+/* Check for any illegal crap in searched for filename so they cannot list
+   out the /etc/passwd file for instance. */
+
+c=word[1];
+while(*c) {
+	if (*c=='.' || *c++=='/') {
+                sprintf(text,"Sorry, the %s file could not be found.\n",word[1]);
+                write_user(user,text);
+                sprintf(text,"%s tried to to use %s to hack the system in the helpfiles.\n",user->name,word[1]);
+		write_syslog(text,1);
+		return;
+		}
+	}
+
+sprintf(filename,"%s/%s",INFOFILESDIR,word[1]);
+if (!(fp=fopen(filename,"r"))) {
+        sprintf(text,"~CRSorry, could not find the info file: ~FB\"~FY%s~FB\".\n",word[1]);
+        write_user(user,text);
+	return;
+        }
+write_user(user,SEPERATOR1);
+write_user(user,"\n");        
+fgets(line,ARR_SIZE,fp);
+while(!feof(fp)) {
+        line[strlen(line)-1]=0;
+	strcat(line,"\n");
+        write_user(user,line);
+        fgets(line,ARR_SIZE,fp);
+        }
+fclose(fp);
+write_user(user,SEPERATOR3);
+write_user(user,"\n");        
+}
+
+/*************************************************************
+ * Spod Ranks - Based on Code by Ardant, Modified by Donald  *
+ * Worked into Moenuts v1.73 by Moe                          *
+ *************************************************************
+ *************************************************************
+ * Ranklist system for Amnuts                                *
+ * written by Ardant (ardant@ardant.net)                     *
+ *************************************************************/
+
+char *gend_nom[] =
+{"it", "he", "she", "it"};
+
+#define RT_NONE		0
+#define RT_ASCENDING	(1<<0)
+#define RT_MAX		(1<<1)
+#define RT_TIME		(1<<2)
+#define RT_DESCENDING	(1<<3)
+#define RT_DESTROY	(1<<4)
+
+enum rt_vals {
+  RT_NOTHING, RT_LOGINTIME, RT_MONEY, RT_LOGONS, RT_AVERAGE, RT_THIEF,
+  RT_AFFECTION, RT_TICWINS, RT_FIGHTS, RT_POKERWINS
+};
+
+UR_OBJECT rt;
+
+struct rank_head_struct rank_list[] =
+{
+  {RT_LOGINTIME, "Total Login Time", NULL, NULL, RT_TIME | RT_DESCENDING, 0, "", "the spod list", ""},
+  {RT_MONEY, "The Richest Users", NULL, NULL, RT_DESCENDING, 0, "%9d dollars", "the rich list", ""},
+  {RT_LOGONS, "Most Logins", NULL, NULL, RT_DESCENDING, 0, "%6d logins", "the login list", ""},
+  {RT_AVERAGE, "Longest Average Time Per Login", NULL, NULL, RT_TIME | RT_DESCENDING, 0, "", "the average login time list", ""},
+  {RT_THIEF, "The Greatest Thiefs Of All Time", NULL, NULL, RT_DESCENDING, 0, "%9d dollars", "the thief list", ""},
+  {RT_AFFECTION, "The Affection List", NULL, NULL, RT_DESCENDING, 0, "%6d Aff. Points", "the affection list", "[%s]"},
+  {RT_TICWINS, "Tic Tac Toe Win List", NULL, NULL, RT_DESCENDING, 0, "%6d Tic Tac Toe Wins", "the tic tac toe win list"},
+  {RT_FIGHTS, "Fight Victory Standings", NULL, NULL, RT_DESCENDING, 0, "%6d Fights Won", "the fight victory list"},
+  {RT_POKERWINS, "Poker Standings - Money Won", NULL, NULL, RT_DESCENDING, 0, "$%9d Dollars Won", "the poker winnings list"},
+  {0, "*", NULL, NULL, RT_NONE, 0, ""}
+};
+
+/* General Spod Functions */
+
+struct rank_entry_struct *create_rank_entry(UR_OBJECT user, struct rank_head_struct *rhs, int append)
+{
+  struct rank_entry_struct *spod;
+
+  if ((spod = (struct rank_entry_struct *) malloc(sizeof(struct rank_entry_struct))) == NULL) {
+    sprintf(text,"Problem creating entry_struct in create_rank_entry()\n");
+    write_syslog(text,1);
+    return NULL;
+  }
+  update_rank_entry(spod, user, rhs);
+  return insert_rank_entry(spod, rhs, append);
+}
+
+
+void update_rank_entry(struct rank_entry_struct *spod, UR_OBJECT user, struct rank_head_struct *rhs)
+{
+  if (spod==NULL) {
+    create_rank_entry(user,rhs,1);
+    return;
+  }
+  spod->name[0] = 0;
+  spod->data = 0;
+  spod->data = 0;
+  strcpy(spod->name, user->name);
+  switch (rhs->offset) {
+  case RT_LOGINTIME:
+    spod->data = (unsigned long int) user->total_login;
+    break;
+  case RT_MONEY:
+    spod->data = (unsigned long int) user->bank_balance;
+    break;
+  case RT_LOGONS:
+    spod->data = (unsigned long int) user->logons;
+    break;
+  case RT_AVERAGE:
+    if (user->logons)
+      spod->data = (unsigned long int) (user->total_login / user->logons);
+    else
+      spod->data = 0;
+    break;
+  case RT_THIEF:
+	spod->data=(unsigned long int) user->stolen;
+	break;
+  case RT_AFFECTION:
+	spod->data=(unsigned long int) user->affection;
+	break;
+  case RT_TICWINS:
+	spod->data=(unsigned long int) user->twin;
+	break;
+  case RT_FIGHTS:
+	spod->data=(unsigned long int) user->fight_win;
+	break;
+  case RT_POKERWINS:
+	spod->data=(unsigned long int) user->poker_wins;
+	break;
+  default:
+    spod->data = 0;
+    break;
+  }
+}
+
+int destroy_rank_entry(struct rank_entry_struct *res)
+{
+  free(res);
+  return -1;
+}
+
+static struct rank_return_struct find_rank_entry_by_num(int r, struct rank_head_struct *rhs)
+{
+  static struct rank_return_struct ret;
+  struct rank_entry_struct *t;
+  int c = 0;
+  for (t = rhs->first; t != NULL; t = t->next, c++) {
+    if (r == c + 1) {
+      ret.rank = c + 1;
+      ret.spod = t;
+      return ret;
+    }
+  }
+  ret.spod = NULL;
+  ret.rank = 0;
+  return ret;
+}
+
+struct rank_return_struct find_rank_entry(UR_OBJECT user, struct rank_head_struct *rhs)
+{
+  static struct rank_return_struct ret;
+  struct rank_entry_struct *t;
+  int c = 0;
+  for (t = rhs->first; t != NULL; t = t->next, c++) {
+    if (!strcasecmp(t->name, user->name)) {
+      ret.rank = c + 1;
+      ret.spod = t;
+      return ret;
+    }
+  }
+  ret.spod = NULL;
+  ret.rank = 0;
+  return ret;
+}
+
+struct rank_entry_struct *delete_rank_entry(struct rank_entry_struct *res, struct rank_head_struct *rhs)
+{
+  if (res == rhs->first) {
+    rhs->first = res->next;
+    if (res == rhs->last || rhs->first == NULL)
+      rhs->last = NULL;
+    else
+      res->prev = NULL;
+  } else {
+    res->prev->next = res->next;
+    if (res == rhs->last) {
+      rhs->last = res->prev;
+      rhs->last->next = NULL;
+    } else
+      res->next->prev = res->prev;
+  }
+  rhs->count--;
+  return res;
+}
+
+struct rank_entry_struct *insert_rank_entry(struct rank_entry_struct *spod, struct rank_head_struct *rhs, int append)
+{
+  struct rank_entry_struct *ts;
+  if (rhs->first == NULL) {
+    rhs->first = spod;
+    rhs->last = spod;
+    spod->next = NULL;
+    spod->prev = NULL;
+    spod->flags = RT_NONE;
+    rhs->count++;
+    return spod;
+  }
+  if (!append) {
+    ts = rhs->first;
+    while (ts != NULL) {
+      if ((ts->data < spod->data && rhs->flags & RT_ASCENDING) ||
+	  (ts->data > spod->data && rhs->flags & RT_DESCENDING)) {
+	if (ts->prev != NULL)
+	  ts->prev->next = spod;
+	spod->next = ts;
+	spod->prev = ts->prev;
+	ts->prev = spod;
+	if (spod->next == NULL)
+	  rhs->last = spod;
+	if (spod->prev == NULL)
+	  rhs->first = spod;
+	if (ts->next == NULL)
+	  rhs->last = ts;
+	if (ts->prev == NULL)
+	  rhs->first = ts;
+	return spod;
+      } else {
+	ts = ts->next;
+	continue;
+      }
+    }
+  }
+  rhs->last->next = spod;
+  spod->next = NULL;
+  spod->prev = rhs->last;
+  if (spod->next == NULL)
+    rhs->last = spod;
+  if (spod->prev == NULL)
+    rhs->first = spod;
+  rhs->count++;
+  return spod;
+}
+
+void initialize_rank_lists()
+{
+  struct user_dir_struct *entry;
+  UR_OBJECT u;
+  int i = 0;
+
+  for (entry = first_dir_entry; entry != NULL; entry = entry->next) {
+    entry->name[0] = toupper(entry->name[0]);
+    u = retrieve_user_exact(NULL, entry->name);
+    if (!u) {
+      sprintf(text,"initialize_rank_lists(): User %s could not be loaded.\n",entry->name);
+      write_syslog(text,1);
+      continue;
+    }
+    for (i = 0; rank_list[i].offset; i++)
+      (void) create_rank_entry(u, &rank_list[i], 1);
+    done_retrieve(u);
+  }
+  for (i = 0; rank_list[i].offset; i++) {
+    merge_sort_head(&rank_list[i]);
+  }
+}
+
+void destroy_rank_lists()
+{
+  struct rank_entry_struct *t;
+  int i = 0;
+
+  for (i = 0; rank_list[i].offset; i++) {
+    while (rank_list[i].first) {
+      t = rank_list[i].first;
+      delete_rank_entry(t, &rank_list[i]);
+      destroy_rank_entry(t);
+    }
+  }
+}
+
+/*
+ *   Whee, Merge Sort! -- Merge Sort for linked list.
+ *   A bubble would be about the same as n < 2000, but, hey, I'm bored.
+ *   Merge is better than incremental insert for updating as long as:
+ *   0.69 * users_on > ln(users_total ^ 2)
+ *   I feel like I'm in school again. Double pointers galore.
+ *   -- Ardant (ardant@ardant.net)
+ */
+
+struct rank_entry_struct *merge_sort(struct rank_entry_struct *p, int cnt, int recurse, int asc)
+{
+  struct rank_entry_struct *a = NULL, *b = NULL, *t, *pr = NULL, *f = NULL,
+  **fpe;
+  int c = 0;
+
+  if (cnt == 0) {
+    return NULL;
+  }
+  if (cnt <= 1) {
+    p->next = p->prev = NULL;
+    return p;
+  }
+  for (t = p; c != ((int) ((cnt + 1) / 2)); c++, t = t->next);
+  if (t->prev) /* moe */
+    if ((t->prev->next = NULL));
+  a = merge_sort(p, (int) ((cnt + 1) / 2), recurse + 1, asc);
+  b = merge_sort(t, cnt - (int) ((cnt + 1) / 2), recurse + 1, asc);
+  fpe = &f;
+  while (a != NULL && b != NULL) {
+    if (((asc & RT_ASCENDING) && a->data < b->data) ||
+	((asc & RT_DESCENDING) && b->data < a->data)) {
+      *fpe = a;
+      fpe = &(a->next);
+      a = a->next;
+    } else {
+      *fpe = b;
+      fpe = &(b->next);
+      b = b->next;
+    }
+  }
+  for (; a != NULL; a = a->next) {
+    *fpe = a;
+    fpe = &(a->next);
+  }
+  for (; b != NULL; b = b->next) {
+    *fpe = b;
+    fpe = &(b->next);
+  }
+  *fpe = NULL;
+  for (t = f; t != NULL; pr = t, t = t->next)
+    if (t != f)
+      t->prev = pr;
+  return f;
+}
+
+/*
+ * Wrapper to Merge Sort
+ * Because the head struct has the last var to clean up.
+ */
+
+void merge_sort_head(struct rank_head_struct *r)
+{
+  r->first = merge_sort(r->first, r->count, 0, r->flags);
+  for (r->last = r->first; r->last->next != NULL; r->last = r->last->next);
+}
+
+struct rank_head_struct *rhs_from_id(int id)
+{
+  int i;
+  for (i = 0; rank_list[i].offset; i++)
+    if (rank_list[i].offset == id)
+      return &rank_list[i];
+  return NULL;
+}
+
+void do_spod_wrappered(UR_OBJECT user, char *inpstr, int id)
+{
+  struct rank_entry_struct *t;
+  int c_rank, c = 0;
+  struct rank_return_struct ret;
+  UR_OBJECT u, oct;
+  char *buffer, aff[25+1];
+  struct rank_head_struct *rhs;
+
+  if ((rhs = rhs_from_id(id)) == NULL)
+    return;
+
+  if (!rhs->first)
+    initialize_rank_lists();
+
+  for (u = user_first; u != NULL; u = u->next)
+    update_spod(u);
+  merge_sort_head(rhs);
+
+  if (word_count > 1) {
+    if (atoi(word[1]) != 0) {
+      c_rank = atoi(word[1]);
+      ret = find_rank_entry_by_num(c_rank, rhs);
+    } else {
+      u = retrieve_user(user, word[1]);
+      if (!u) {
+	write_user(user,"~FTThat user isn't in the list, they either don't exist or are a bot.\n");
+	return;
+	}
+      ret = find_rank_entry(u, rhs);
+      done_retrieve(u);
+    }
+  } else {
+    ret = find_rank_entry(user, rhs);
+    sprintf(text, "~CB%s ~CGchecks ~CM%s ~CGand notices %s's ~CY#~CR%d!\n", user->recap, rhs->long_name,heshe[user->gender],ret.rank);
+    write_room_except(user->room, text, user);
+  }
+  if (!ret.spod) {
+    write_user(user, "No such spod entry.\n");
+    return;
+  }
+  write_user(user,SEPERATOR1);
+  write_user(user,"\n");
+  sprintf(text, "~FG| ~CW%-73.73s ~FB|\n", center(rhs->name,72));
+  write_user(user,text);
+  write_user(user,SEPERATOR3);
+  write_user(user,"\n");
+  c_rank = ret.rank;
+  for (t = ret.spod; t->prev != NULL && c < 4; c++, c_rank--, t = t->prev);
+  for (c = 0; t != NULL && c < 10; t = t->next, c++) {
+    if (!t->name[0]) continue;
+    oct = get_user(t->name);
+    buffer = rank_format(t, rhs);
+   
+	/*
+	  - Add this little piece of code for my good pal ... Moe ;-)
+	  - Paddy
+	*/
+	if (!strcasecmp(command[com_num],"afflist"))
+	{
+		     if (t->data<11)		    	strncpy(aff, "Living Dead",      sizeof(aff));
+		else if (t->data>=11 && t->data<=100)   strncpy(aff, "Barely Breathing", sizeof(aff));
+		else if (t->data>100 && t->data<=150)   strncpy(aff, "Cold As Ice",      sizeof(aff));
+		else if (t->data>150 && t->data<=200)   strncpy(aff, "Thawing Out",      sizeof(aff));
+		else if (t->data>200 && t->data<=250)   strncpy(aff, "Room Temp.",       sizeof(aff));
+		else if (t->data>250 && t->data<=300)   strncpy(aff, "Socialite",        sizeof(aff));
+		else if (t->data>300 && t->data<=350)   strncpy(aff, "Friendly",         sizeof(aff));
+		else if (t->data>350) strncpy(aff, "Loveable", sizeof(aff));
+		else strncpy(aff, "Unknown", sizeof(aff));
+		sprintf(text, " %s%s~CM%3d~CW: ~RS%-18s~RS ~FT%-18s ~CY[~FY%-18s~CY] %s\n", (!strcasecmp(t->name, user->name)) ? "~CY" : (ret.rank == (c_rank + c)) ? "~CG" : "~CM", (!strcmp(t->name, user->name)) ? "~CY" : "~CM", c_rank + c, t->name, buffer, aff, oct != NULL ? "~CBONLINE" : "~RS");
+	}
+	else
+		sprintf(text, " %s%s~CM%3d~CW: ~RS%-20s~RS ~FT%-40s %s\n", (!strcasecmp(t->name, user->name)) ? "~CY" : (ret.rank == (c_rank + c)) ? "~CG" : "~CM", (!strcmp(t->name, user->name)) ? "~CY" : "~CM", c_rank + c, t->name, buffer, oct != NULL ? "~CBONLINE" : "~RS");
+	write_user_nr(user,text);
+  }
+  write_user(user,SEPERATOR3);
+  write_user(user,"\n");
+  return;
+}
+
+char *rank_format(struct rank_entry_struct *res, struct rank_head_struct *rhs)
+{
+  static char buffer[ARR_SIZE*2];
+  int mins, days, hours, years;
+  time_t t;
+
+  if (rhs->flags & RT_TIME) {
+  	t = (time_t) res->data;
+  	mins = (t % 3600) / 60;
+  	days = (t / 86400) % 365;
+  	years = t / (86400 * 365);
+  	hours = (t % 86400) / 3600;
+  	if (years) { sprintf(buffer, "~CY%2d ~FGyear%s ~CY%3d ~FGday%s ~CY%2d ~FGhour%s ~CY%2d ~FGminute%s", years, years == 1 ? ", " : "s,", days, days == 1 ? ", " : "s,", hours, hours == 1 ? ", " : "s,", mins, mins == 1 ? ", " : "s."); } 
+    	else { sprintf(buffer, "          ~CY%2d ~FGday%s ~CY%2d ~FGhour%s ~CY%2d ~FGminute%s", days, days == 1 ? ", " : "s,", hours, hours == 1 ? ", " : "s,", mins, mins == 1 ? ", " : "s."); }
+	return buffer;
+   	} 
+  else { sprintf(buffer, rhs->format, res->data); }
+  return buffer;
+}
+
+void do_spod(UR_OBJECT user, char *inpstr)
+{
+  int wdo = RT_LOGINTIME;
+  if (!strcasecmp(word[1], "-l")) {
+    strcpy(word[1], word[2]);
+    word_count--;
+    wdo = RT_LOGONS;
+  }
+  if (!strcasecmp(word[1], "-a")) {
+    strcpy(word[1], word[2]);
+    word_count--;
+    wdo = RT_AVERAGE;
+  }
+  do_spod_wrappered(user, inpstr, wdo);
+}
+
+void do_rich(UR_OBJECT user, char *inpstr)
+{
+  if (!strcasecmp(word[1], "total"))
+    total_spod_wrappered(user, inpstr, RT_MONEY);
+  else
+    do_spod_wrappered(user, inpstr, RT_MONEY);
+}
+
+void do_thief(UR_OBJECT user, char *inpstr)
+{
+  if (!strcasecmp(word[1], "total"))
+    total_spod_wrappered(user, inpstr, RT_THIEF);
+  else
+    do_spod_wrappered(user, inpstr, RT_THIEF);
+}
+
+void do_ticlist(UR_OBJECT user, char *inpstr)
+{
+  if (!strcasecmp(word[1], "total"))
+    total_spod_wrappered(user, inpstr, RT_TICWINS);
+  else
+    do_spod_wrappered(user, inpstr, RT_TICWINS);
+}
+
+void do_fightlist(UR_OBJECT user, char *inpstr)
+{
+  if (!strcasecmp(word[1], "total"))
+    total_spod_wrappered(user, inpstr, RT_FIGHTS);
+  else
+    do_spod_wrappered(user, inpstr, RT_FIGHTS);
+}
+
+void do_afflist(UR_OBJECT user, char *inpstr)
+{
+  if (!strcasecmp(word[1], "total"))
+    total_spod_wrappered(user, inpstr, RT_AFFECTION);
+  else
+    do_spod_wrappered(user, inpstr, RT_AFFECTION);
+}
+
+void do_poker_spod(UR_OBJECT user, char *inpstr)
+{
+  if (!strcasecmp(word[1], "total"))
+    total_spod_wrappered(user, inpstr, RT_POKERWINS);
+  else
+    do_spod_wrappered(user, inpstr, RT_POKERWINS);
+}
+
+void delete_spod(UR_OBJECT user)
+{
+  int i;
+  struct rank_return_struct ret;
+  for (i = 0; rank_list[i].offset; i++) {
+    ret = find_rank_entry(user, &rank_list[i]);
+    if (ret.rank) {
+      delete_rank_entry(ret.spod,&rank_list[i]);
+      destroy_rank_entry(ret.spod);
+    }
+  }
+  return;
+}
+
+void update_spod(UR_OBJECT user)
+{
+  int i;
+  struct rank_return_struct ret;
+  if (user->type != USER_TYPE) return;
+  if (is_user_bot(user->name)) return;
+  for (i = 0; rank_list[i].offset; i++) {
+    ret = find_rank_entry(user, &rank_list[i]);
+    update_rank_entry(ret.spod, user, &rank_list[i]);
+  }
+  return;
+}
+
+void total_spod(UR_OBJECT user, char *inpstr)
+{
+  total_spod_wrappered(user, inpstr, RT_LOGINTIME);
+  return;
+}
+
+void total_spod_wrappered(UR_OBJECT user, char *inpstr, int id)
+{
+  struct rank_head_struct *rhs;
+  int sum = 0, cnt = 0;
+  struct rank_entry_struct *t, tot, avg;
+  UR_OBJECT u;
+
+  if ((rhs = rhs_from_id(id)) == NULL)
+    return;
+
+  for (u = user_first; u != NULL; u = u->next)
+    update_spod(u);
+  merge_sort_head(rhs);
+  for (t = rhs->first; t != NULL; t = t->next) {
+    sum += t->data;
+    cnt++;
+  }
+  if (!cnt) {
+    write_user(user, "No entries in that list.\n");
+    return;
+  }
+  tot.data = sum;
+  avg.data = (int) (sum / cnt);
+  sprintf(text, "Stats for %s\n", rhs->name);
+  write_user(user,text);
+  sprintf(text,"    ~FT~OLAverage   :~RS~FT %s\n", rank_format(&avg, rhs));
+  write_user(user,text);
+  sprintf(text,"    ~FT~OLTotal     :~RS~FT %s\n", rank_format(&tot, rhs));
+  write_user(user,text);
+}
+
+void reinitialize_rank_lists(UR_OBJECT user)
+{
+  write_user(user, "~CB[~CYM~CYoenuts~CB]~CW: ~CGRebuilding Spod lists... ");
+  destroy_rank_lists();
+  initialize_rank_lists();
+  write_user(user, "~CB[~CYDone~CB]\n");
+}
+
+/* retrieve_user_exact(UR_OBJECT, char)
+   Given the full name of a user...
+   * return the user struct if they're online
+   * load and return the user struct if they're not
+   by Ardant (ardant@ardant.net)
+*/
+
+int retrieve_user_type;
+
+UR_OBJECT retrieve_user_exact(UR_OBJECT user, char *i_name)
+{
+  struct user_dir_struct *entry;
+  UR_OBJECT u;
+  char name[USER_NAME_LEN+1];
+
+  strncpy(name, i_name, USER_NAME_LEN);
+  strtolower(name);
+  name[0] = toupper(name[0]);
+  text[0] = 0;
+  retrieve_user_type = 0;
+  // Lets Try Something Here.
+  if ((u=get_user(name)) != NULL) { retrieve_user_type=1; return u; }
+  for (entry = first_dir_entry; entry != NULL; entry = entry->next) {
+    if (!strcmp(entry->name, name)) {
+      if ((u = get_user(entry->name)) != NULL) {
+	retrieve_user_type = 1;
+	return u;
+      }
+      if ((u = create_user()) == NULL) {
+	sprintf(text, "%s: unable to create temporary user object.\n", syserror);
+	write_user(user, text);
+	return NULL;
+      }
+      strcpy(u->name, entry->name);
+      if (!load_user_details(u)) {
+	write_user(user, nosuchuser);
+	destruct_user(u);
+	destructed = 0;
+	return NULL;
+      }
+      retrieve_user_type = 2;
+      return u;
+    }
+  }
+  return NULL;
+}
+
+/** retrieve_user() and done_retrieve() by Ardant (ardant@ardant.net) ***/
+
+UR_OBJECT retrieve_user(UR_OBJECT user, char *i_name)
+{
+  struct user_dir_struct *entry, *last;
+  UR_OBJECT u;
+  int found = 0;
+  char name[USER_NAME_LEN], text2[ARR_SIZE];
+  strncpy(name, i_name, USER_NAME_LEN);
+  strtolower(name);
+  name[0] = toupper(name[0]);
+  text[0] = 0;
+  retrieve_user_type = 0;
+  for (entry = first_dir_entry; entry != NULL; entry = entry->next) {
+    if (!strcmp(entry->name, name)) {
+      if ((u = get_user(entry->name)) != NULL) {
+	retrieve_user_type = 1;
+	return u;
+      }
+      if ((u = create_user()) == NULL) {
+	sprintf(text, "%s: unable to create temporary user object.\n", syserror);
+	write_user(user, text);
+	return NULL;
+      }
+      strcpy(u->name, entry->name);
+      if (!load_user_details(u)) {
+	write_user(user, nosuchuser);
+	destruct_user(u);
+	destructed = 0;
+	return NULL;
+      }
+      retrieve_user_type = 2;
+      return u;
+    }
+  }
+  for (entry = first_dir_entry; entry != NULL; entry = entry->next) {
+    if (instr(entry->name, name) != -1) {
+      strcat(text, entry->name);
+      strcat(text, "  ");
+      found++;
+      last = entry;
+    }
+  }				/* end for */
+  if (found == 0)
+    return NULL;
+  if (found > 1) {
+    write_user(user, "Name is not unique.\n");
+    sprintf(text2, "   %s\n", text);
+    write_user(user, text2);
+    return NULL;
+  } else {
+    if ((u = get_user(last->name)) != NULL) {
+      retrieve_user_type = 1;
+      return u;
+    }
+    if ((u = create_user()) == NULL) {
+      sprintf(text, "%s: unable to create temporary user object.\n", syserror);
+      write_user(user, text);
+      return NULL;
+    }
+    strcpy(u->name, last->name);
+    if (!load_user_details(u)) {
+      write_user(user, nosuchuser);
+      destruct_user(u);
+      destructed = 0;
+      return NULL;
+    }
+    retrieve_user_type = 2;
+    return u;
+  }
+}
+
+void done_retrieve(UR_OBJECT user)
+{
+  switch (retrieve_user_type) {
+  case 0:
+    break;			/* not supposed to happen */
+  case 1:			/* online user, don't do anything */
+    break;
+  case 2:			/* offline user, save and have fun */
+    user->socket = -2;
+    strcpy(user->site, user->last_site);
+    save_user_details(user, 0);
+    destruct_user(user);
+    destructed = 0;
+    break;
+  }
+}
+
+/** Extra's added -- Don **/
+
+int add_user_node(char *name, int level)
+{
+struct user_dir_struct *new;
+
+if ((new=(struct user_dir_struct *)malloc(sizeof(struct user_dir_struct)))==NULL) {
+ sprintf(text,"ERROR: Memory allocation failure in add_user_node().\n");
+  write_syslog(text,0);
+  return 0;
+  }
+if (first_dir_entry==NULL) {
+  first_dir_entry=new;
+  new->prev=NULL;
+  }
+else {
+  last_dir_entry->next=new;
+  new->prev=last_dir_entry;
+  }
+new->next=NULL;
+last_dir_entry=new;
+
+++user_count;
+strcpy(new->name,name);
+new->level=level;
+new->date[0]='\0';
+return 1;
+}
+
+/*************************************************
+  remove a user node from the user linked list
+  have needed to use an additional check for the
+  correct user, ie, lev.  If lev = -1 then don't
+  do a check on the user node's level, else use
+  the lev and the name as a check.
+ ************************************************/
+
+int rem_user_node(char *name, int lev)
+{
+int level,found;
+struct user_dir_struct *entry;
+
+entry=first_dir_entry;
+found=0;
+if (lev!=-1) {
+  while(entry!=NULL) {
+    if ((!strcmp(entry->name,name)) && (entry->level==lev)) {
+      level=entry->level;  found=1;  break;
+      }
+    entry=entry->next;
+    }
+  }
+else {
+  while(entry!=NULL) {
+    if (!strcmp(entry->name,name)) {
+      level=entry->level;  found=1;  break;
+      }
+    entry=entry->next;
+    }
+  }
+if (!found) return 0;
+if (entry==first_dir_entry) {
+  first_dir_entry=entry->next;
+  if (entry==last_dir_entry) last_dir_entry=NULL;
+  else first_dir_entry->prev=NULL;
+  }
+else {
+  entry->prev->next=entry->next;
+  if (entry==last_dir_entry) { 
+    last_dir_entry=entry->prev;  last_dir_entry->next=NULL; 
+    }
+  else entry->next->prev=entry->prev;
+  }
+free(entry);
+--user_count;
+return 1;
+}
+
+/** Removed As It's Not Needed In Moenuts **
+add_user_date_node(char *name, char *date)
+{
+struct user_dir_struct *entry;
+
+for (entry=first_dir_entry;entry!=NULL;entry=entry->next) {
+  if (!strcmp(entry->name,name)) {
+    strcpy(entry->date,date);
+    break;
+    }
+  }
+}
+******************************************/
+
+void count_users_two(void)
+{
+struct user_dir_struct *entry;
+
+/* first zero out all level counts */
+user_count=0;
+for (entry=first_dir_entry;entry!=NULL;entry=entry->next) {
+  user_count++;
+  }
+}
+
+/*** Alter The Level Of A Node In The User Linked List ***/
+
+int user_list_level(char *name, int lvl)
+{
+struct user_dir_struct *entry;
+
+entry=first_dir_entry;
+while(entry!=NULL) {
+  if (!strcmp(entry->name,name)) {
+    entry->level=lvl;
+    return(1);
+    }
+  entry=entry->next;
+  }
+return(0);
+}
+
+int instr(char *s1, char *s2)
+{
+int f,g;
+for (f=0;*(s1+f);++f) {
+  for (g=0;;++g) {
+    if (*(s2+g)=='\0' && g>0) return f;
+    if (*(s2+g)!=*(s1+f+g)) break;
+    }
+  }
+return -1;
+}
+
+void process_users(void)
+{
+char name[USER_NAME_LEN+3];
+DIR *dirp;
+struct dirent *dp;
+UR_OBJECT u;
+
+/* open the directory file up */
+dirp=opendir(USERFILES);
+if (dirp==NULL) {
+  fprintf(stderr,"|> Moenuts: Directory open failure in process_users().\n");
+  boot_exit(12);
+  }
+if ((u=create_user())==NULL) {
+  fprintf(stderr,"|> Moenuts: Create user failure in process_users().\n");
+  (void) closedir(dirp);
+  boot_exit(17);
+  }
+while((dp=readdir(dirp))!=NULL) {
+  if (!strcmp(dp->d_name,".") || !strcmp(dp->d_name,"..")) continue;
+  if (!strstr(dp->d_name,".D")) continue;
+  strcpy(name,dp->d_name);
+  name[strlen(name)-2]='\0';
+  strcpy(u->name,name);
+  if (is_user_bot(name)) continue;
+  if (load_user_details(u)) {
+      add_user_node(u->name,u->level);
+      } /* end if */
+  else {
+      fprintf(stderr,"|> Moenuts: Could not load userfile for '%s' in process_users().\n",name);
+      (void) closedir(dirp);
+      boot_exit(18);
+      }
+  } /* end while */
+destruct_user(u);
+(void) closedir(dirp);
+}
+
+/* End of Rank List Functions */
+
+void box_write(UR_OBJECT user, char *str)
+{
+int cols=0;
+char text2[ARR_SIZE+1];
+
+cols=colour_com_count(str);
+sprintf(text2,"~FG| %-*.*s ~FB|\n",(73+cols*3),(73+cols*3),str);
+write_user(user,text2);
+}
+
+/* Here I use the credit timer to incriment user->afftime - Moe */
+void update_affection(UR_OBJECT user)
+{
+if (user->afftime>10) {
+	user->affection++;
+	user->afftime=0;
+	return;
+	}
+}
+
+/*** See if user is banned ***/
+int user_protected(char *name)
+{
+FILE *fp;
+char line[82],filename[80];
+
+sprintf(filename,"%s/%s",DATAFILES,USERPROTECT);
+if (!(fp=fopen(filename,"r"))) return 0;
+fscanf(fp,"%s",line);
+while(!feof(fp)) {
+	if (line[0]!='#' && line[0]) {
+		if (!strcmp(line,name)) {  fclose(fp);  return 1;  }
+		}
+	fscanf(fp,"%s",line);
+	}
+fclose(fp);
+return 0;
+}
+
+void add_protected_user(UR_OBJECT user)
+{
+UR_OBJECT u;
+FILE *fp;
+char filename[80],filename2[80],name[USER_NAME_LEN+1];
+
+word[2][0]=toupper(word[2][0]);
+strtolower(word[2]);
+word[2][0]=toupper(word[2][0]);
+
+/* See if protect already set for given user */
+sprintf(filename,"%s/%s",DATAFILES,USERPROTECT);
+if ((fp=fopen(filename,"r"))) {
+	fscanf(fp,"%s",name);
+	while(!feof(fp)) {
+		if (!strcmp(name,word[2])) {
+			write_user(user,"That user is already protected.\n");
+			fclose(fp);  
+			return;
+			}
+		fscanf(fp,"%s",name);
+		}
+	fclose(fp);
+	}
+/* See if already on */
+u=get_exact_user(word[2]);
+if (!u) {
+	sprintf(filename2,"%s/%s.D",USERFILES,word[2]);
+	if (!file_exists(filename2)) {
+		write_user(user,"This user doesn't exist.\n");
+		return;
+		}
+	}
+/* Write new protect to file */
+if (!(fp=fopen(filename,"a"))) {
+	sprintf(text,"%s: Can't open file to append.\n",syserror);
+	write_user(user,text);
+	write_syslog("ERROR: Couldn't open file to append in add_protected_user().\n",0);
+	return;
+	}
+fprintf(fp,"%s\n",word[2]);
+fclose(fp);
+write_user(user,"User protected from deletion.\n");
+sprintf(text,"%s PROTECTED user %s.\n",user->name,word[2]);
+write_syslog(text,1);
+}
+
+void remove_protected_user(UR_OBJECT user)
+{
+FILE *infp,*outfp;
+char filename[80],name[USER_NAME_LEN+1];
+int found,cnt;
+
+sprintf(filename,"%s/%s",DATAFILES,USERPROTECT);
+if (!(infp=fopen(filename,"r"))) {
+	write_user(user,"There is no protection list, so that user isn't protected.\n");
+	return;
+	}
+if (!(outfp=fopen("tempfile","w"))) {
+	sprintf(text,"%s: Couldn't open tempfile.\n",syserror);
+	write_user(user,text);
+	write_syslog("ERROR: Couldn't open tempfile to write in unban_user().\n",0);
+	fclose(infp);
+	return;
+	}
+found=0;  cnt=0;
+word[2][0]=toupper(word[2][0]);
+fscanf(infp,"%s",name);
+while(!feof(infp)) {
+	if (strcmp(word[2],name)) {
+		fprintf(outfp,"%s\n",name);  cnt++;
+		}
+	else found=1;
+	fscanf(infp,"%s",name);
+	}
+fclose(infp);
+fclose(outfp);
+if (!found) {
+	write_user(user,"That user is not currently protected.\n");
+	unlink("tempfile");
+	return;
+	}
+if (!cnt) {
+	unlink(filename);  unlink("tempfile");
+	}
+else rename("tempfile",filename);
+write_user(user,"User protection removed.\n");
+sprintf(text,"%s UNPROTECTED user %s.\n",user->name,word[2]);
+write_syslog(text,1);
+}
+
+/*************] Da Key System ]*************/
+
+void add_user_key(UR_OBJECT user, char *uname)
+{
+UR_OBJECT u;
+FILE *fp;
+char filename[80],filename2[80],name[USER_NAME_LEN+1], name2[USER_NAME_LEN+1];
+
+if (strcasecmp(user->room->owner,user->name)) {
+	write_user(user,"You do not own this room, move to a room you own to give keys.\n");
+	return;
+	}
+
+strncpy(name2,uname,USER_NAME_LEN);
+strtolower(name2);
+name2[0]=toupper(name2[0]);
+
+/* See if key already exists */
+sprintf(filename,"%s/%s.key",DATAFILES,user->room->name);
+if ((fp=fopen(filename,"r"))) {
+	fscanf(fp,"%s",name);
+	while(!feof(fp)) {
+		if (!strcasecmp(name,name2)) {
+			write_user(user,"That user already has a key.\n");
+			fclose(fp);  
+			return;
+			}
+		fscanf(fp,"%s",name);
+		}
+	fclose(fp);
+	}
+
+/* See if already on */
+u=get_exact_user(name2);
+if (!u) {
+	sprintf(filename2,"%s/%s.D",USERFILES,name2);
+	if (!file_exists(filename2)) {
+		write_user(user,"This user doesn't exist.\n");
+		return;
+		}
+	}
+/* Write new protect to file */
+if (!(fp=fopen(filename,"a"))) {
+	sprintf(text,"%s: Can't open file to append.\n",syserror);
+	write_user(user,text);
+	write_syslog("ERROR: Couldn't open file to append in add_user_key().\n",0);
+	return;
+	}
+fprintf(fp,"%s\n",name2);
+fclose(fp);
+write_user(user,"User has been given a key.\n");
+sprintf(text,"%s gave a key to the room %s to user %s.\n",user->name,user->room->recap,name2);
+write_syslog(text,1);
+sprintf(text,"~CYYou buy an extra key to your room for $%d.00\n",ROOM_KEY_COST);
+write_user(user,text);
+user->bank_balance-=ROOM_KEY_SELL;
+}
+
+void remove_user_key(UR_OBJECT user, char *uname)
+{
+FILE *infp,*outfp;
+char filename[80],name[USER_NAME_LEN+1], name2[USER_NAME_LEN+1];
+int found,cnt;
+
+if (strcasecmp(user->room->owner,user->name)) {
+	write_user(user,"You do not own this room, move to a room you own to give keys.\n");
+	return;
+	}
+
+strncpy(name2,uname,USER_NAME_LEN);
+sprintf(filename,"%s/%s.key",DATAFILES,user->room->name);
+if (!(infp=fopen(filename,"r"))) {
+	write_user(user,"There is no key list, so that user has no key.\n");
+	return;
+	}
+if (!(outfp=fopen("tempfile","w"))) {
+	sprintf(text,"%s: Couldn't open tempfile.\n",syserror);
+	write_user(user,text);
+	write_syslog("ERROR: Couldn't open tempfile to write in unban_user().\n",0);
+	fclose(infp);
+	return;
+	}
+found=0;  cnt=0;
+name2[0]=toupper(name2[0]);
+
+fscanf(infp,"%s",name);
+while(!feof(infp)) {
+	if (strcasecmp(name2,name)) {
+		fprintf(outfp,"%s\n",name);  cnt++;
+		}
+	else found=1;
+	fscanf(infp,"%s",name);
+	}
+fclose(infp);
+fclose(outfp);
+if (!found) {
+	write_user(user,"That user currently does not have a key.\n");
+	unlink("tempfile");
+	return;
+	}
+if (!cnt) {
+	unlink(filename);  unlink("tempfile");
+	}
+else rename("tempfile",filename);
+write_user(user,"User key has been removed.\n");
+sprintf(text,"%s removed %s's key from the room %s.\n",user->name,name2,user->room->name);
+write_syslog(text,1);
+sprintf(text,"~CYYou sell your key back and receiver $%d.00\n",ROOM_KEY_SELL);
+write_user(user,text);
+user->bank_balance+=ROOM_KEY_SELL;
+}
+
+void keys(UR_OBJECT user)
+{
+
+if (word_count<2) {
+	write_user(user,"Usage: keys add/remove/list [<username>]\n");
+	return;
+	}
+if (!strcasecmp(word[1],"list")) {
+	list_keys(user);
+	return;
+	}
+if (word_count<3) {
+	write_user(user,"Keys : Username Required!\n");
+	write_user(user,"Usage: keys add/remove/list [<username>]\n");
+	return;
+	}
+if (!strcasecmp(word[1],"add")) {
+	if (user->bank_balance<ROOM_KEY_COST) {
+		write_user(user,"You cannot afford a key at this time.\n");
+		return;
+		}
+	add_user_key(user,word[2]);
+	return;
+	}
+if (!strcasecmp(word[1],"remove")) {
+	remove_user_key(user,word[2]);
+	return;
+	}
+}
+
+
+/***************************************************************************/
+/* Friends List Shit -- Squirt is making me do this damn code cuz he wants */
+/* to be alerted when his net.sex buddies come online. ;-)  Hehe Jk Bro.   */
+/* - Moe                                                                   */
+/***************************************************************************/
+
+void save_friends(UR_OBJECT user)
+{
+char filename[81];
+int i=0,n=0;
+FILE *fp;
+
+sprintf(filename,"%s/%s.F",USERFILES,user->name);
+if (!(fp=fopen(filename,"w"))) {
+	write_user(user,"Cannot Save Friends List...\n");
+	write_syslog("Cannot Write Friends List...\n",1);
+	return;
+	}
+for(i=0;i<MAX_FRIENDS;i++) {
+	if (user->friends[i][0]) { fprintf(fp,"%s\n",user->friends[i]); n++; }
+	}
+fclose(fp);
+sprintf(text,"~CB[~CYM~CYoenuts~CB]~CW: ~CTSaved ~CB%d ~CTfriends to your friends file~CB.\n\n",n);
+write_user(user,text);
+sprintf(text,"Saved %d friends to %s\n",n,filename);
+write_syslog(text,1);
+}
+
+void load_friends(UR_OBJECT user)
+{
+char filename[81],name[USER_NAME_LEN+1];
+int i;
+FILE *fp;
+
+i=0;
+sprintf(filename,"%s/%s.F",USERFILES,user->name);
+if (!(fp=fopen(filename,"r"))) {
+	write_user(user,"~CB[~CYM~CYoenuts~CB]~CW: ~CRCould not open your friends file for reading...\n");
+	sprintf(text,"Could not open %s for reading, Doesnt' exist?\n",filename);
+	write_syslog(text,1);
+	return;
+	}
+fscanf(fp,"%s",name);
+while(!feof(fp)) {
+	if (i==MAX_FRIENDS) break;
+	if (name[0]) { 
+		strncpy(user->friends[i],name,USER_NAME_LEN);
+		i++;
+		}
+	fscanf(fp,"%s",name);
+	}
+fclose(fp);
+sprintf(text,"~CB[~CYM~CYoenuts~CB]~CW: ~CGLoaded ~CY%d~CG friends into your friends list~CY.\n",i);
+write_user(user,text);
+}
+
+void remove_friend(UR_OBJECT user, char *name)
+{
+int i;
+
+for (i = 0; i < MAX_FRIENDS; ++i) { 
+	if (!strcasecmp(name,user->friends[i])) {
+		memset(user->friends[i],0,sizeof(user->friends[0])-1);
+		break;
+		}
+	}
+save_friends(user);
+}
+
+void add_friend(UR_OBJECT user, char *name)
+{
+int i=0;
+UR_OBJECT u;
+
+u=NULL;
+if (!(u=get_user(name))) {
+	write_user(user,"~CB[~CYM~CYoenuts~CB]~CW: ~CRUser must be online to add them as a friend~CM.\n");
+	return;
+	}
+if (u->type==BOT_TYPE) { /* Do not allow bots to be put on friend lists */
+	write_user(user,"~CRBots cannot be added to your frienids list.\n");
+	return;
+	}
+if (is_user_bot(u->name)) { /* Do not allow named bots on friend lists */
+	write_user(user,"~CRBots cannot be added to your frienids list.\n");
+	return;
+	}
+for(i=0;i<MAX_FRIENDS;i++) {
+	if (!user->friends[i][0]) {
+		strncpy(user->friends[i],u->name,USER_NAME_LEN);
+		break;
+		}
+	}
+sprintf(text,"~CB[~CYM~CYoenuts~CB]~CW: ~CG%s~CG has been added to your friends list as friend ~CY#~CG%d~CY.\n",u->recap,i+1);
+write_user(user,text);
+sprintf(text,"~CB[~CYM~CYoenuts~CB]~CW: ~CG%s~CG has just added you to %s friends list~CY.\n",user->recap,hisher[user->gender]);
+write_user(u,text);
+save_friends(user);
+}
+
+void friends(UR_OBJECT user)
+{
+int i=0, n=0;
+UR_OBJECT u;
+
+if (word_count<2) {
+	write_user(user,"Usage: friends list / <username>\n");
+	write_user(user,"     : friends list  (Will list all the friends in your list\n");
+	write_user(user,"     : friends Moe   (Will add or remove Moe from your list)\n");
+	return;
+	}
+if (!strcasecmp(word[1],"list")) {
+	write_user(user,"~CB[ ~CYYour Friends List ~CB]~RS\n\n");
+	for(i=0;i<MAX_FRIENDS;i++) {
+		if (user->friends[i][0]) {
+			u=NULL;
+			u=get_user(user->friends[i]);
+			if (u!=NULL) { sprintf(text,"~CBFriend #%-2d~CW: ~CM%-*.*s  ~CB[~CYONLINE~CB]\n",i+1,USER_NAME_LEN,USER_NAME_LEN,user->friends[i]); }
+			else { sprintf(text,"~CBFriend #%-2d~CW: ~CT%s ~RS\n",i+1,user->friends[i]); }
+			write_user(user,text);
+			n++;
+			} /* End If */
+		} /* End For */
+	sprintf(text,"\n~CBThere were ~CY%d ~CBfriends found in your list~CY.\n",n);
+	write_user(user,text);
+	return;
+	} /* End list if */
+if (!strcasecmp(word[1],user->name)) {
+	write_user(user,"~CRYou cannot add yourself to your own friend list!\n");
+	return;
+	}
+if (is_user_friend(user,word[1])) {
+	remove_friend(user,word[1]);
+	return;
+	}
+else {
+	add_friend(user,word[1]);
+	return; 
+	}
+}
+
+int is_user_friend(UR_OBJECT user, char *name)
+{
+int i=0;
+
+for(i=0;i<MAX_FRIENDS;i++) {
+	if (!strcasecmp(user->friends[i],name)) return 1;
+	}
+return 0;
+}
+
+void friend_alert(UR_OBJECT user)
+{
+UR_OBJECT u;
+
+for(u=user_first;u!=NULL;u=u->next) {
+	if (u->login) continue;
+	if (u->type==CLONE_TYPE) continue; /* Skip clones for alerts    */
+	if (u->type==BOT_TYPE) continue;   /* Skip Bot Users for alerts */
+	if (is_user_friend(u,user->name)) {
+		sprintf(text,"\n~BP~CB[~CT!! ~CY~ULFriend Alert~RS ~CT!!~CB]~CW: ~CGYour friend ~CT%s ~CGhas just logged in~CY!~BP\n\n",user->name);
+		write_user(u,text);
+		}
+	}
+}
+
+void friend_tell(UR_OBJECT user, char *inpstr)
+{
+UR_OBJECT u;
+int i=0;
+
+if (word_count<2) {
+	write_user(user,"Usage  : .ftell <text>\n");
+	write_user(user,"Purpose: Sends a tell to everyone on your .friends list.\n");
+	return;
+	}
+for(u=user_first;u!=NULL;u=u->next) {
+	if (u->login) continue;
+	if (u->type!=USER_TYPE) continue;
+	if (is_user_friend(user,u->name)) {
+		i++;
+		sprintf(text,"~CW-> %s ~CMsays to %s friends~CW:~RS %s\n",user->recap,hisher[user->gender],inpstr);
+		write_user(u,text);
+		}
+	}
+sprintf(text,"~CW-> ~CMYou ~CMsay to your friends~CW:~RS %s\n",inpstr);
+write_user(user,text);
+sprintf(text,"~CW-> ~CGYour tell has been sent to ~CY%d~CG friends~CY.\n\n",i);
+write_user(user,text);
+}
+
+void look_pets(UR_OBJECT user)
+{
+RM_OBJECT rm;
+UR_OBJECT u;
+int i=0,p=0;
+
+rm=user->room;
+/* Objects - List Pet Objects */
+write_user(user,"~CTPets You See In This Room:\n\n");
+/* GUard Dog */
+if (rm->guarddog) {
+	sprintf(text," a ~CRGuard Dog Named %s~RS sits here guarding the room.\n",rm->guarddog_name);
+	write_user(user,text);
+	}
+u=NULL; i=0;
+for(u=user_first;u!=NULL;u=u->next) {
+	/* Look For User's Pets */
+        if (u->login || u->type!=USER_TYPE) continue;
+	if (!(u->room==user->room)) continue;
+	p=0;
+	while(u->objects[p]) {
+		if (!u->objects[p]->pet) { p++; continue; }
+	        if (u->object_count[p]==1) {
+        	        sprintf(text," %s ~CM(~CTOwned by %s~CM)\n",u->objects[p]->name,u->recap);
+        	        write_user(user,text);
+        	        }
+        	else {
+        	        sprintf(text," %s ~CM(~CTOwned by %s~CM) ~CM(~CG%d~CM)\n",u->objects[p]->name,u->recap,u->object_count[p]);
+                	write_user(user,text);
+                	}
+   		p++; i++;
+   		} /* End While - User Object Loop */
+	}
+if (i) { write_user(user,"\n"); }
+if (!i) { write_user(user," ~CMThere are no pets in this room.\n\n"); }
+}
+
+void accept_invite(UR_OBJECT user)
+{
+if (user->invite_room!=NULL) {
+	sprintf(text,"~CGYou accept the invite to the %s room.\n",user->invite_room->recap);	
+	write_user(user,text);
+	sprintf(text,"%s has accepted the invitation to this room and joins you.\n",user->recap);
+	write_room_except(user->invite_room,text,user);
+	sprintf(text,"%s %s to the %s\n\n",user->recap,user->out_phrase,user->invite_room->recap);
+	write_room(user->room,text);
+	sprintf(text,"%s %s\n\n",user->recap,user->in_phrase);
+	write_room(user->invite_room,text);
+	user->room=user->invite_room;
+	user->invite_room=NULL;
+        word_count=1; look(user);
+	return;
+	}
+write_user(user,"~CRYou need to be invited to a room first before you can accept.\n");
+}
+

@@ -1,20 +1,20 @@
 NUKyNCCLvgLH.
-1087341306 30 27 1087341275 5 8 0 0 0 1
-0 0 8 99 5 0
+1095790408 18 9 1095790391 5 0 0 0 0 1
+0 0 8 0 2 0
 localhost
-is a test user.
+is new to the island.
 comes running into the room!
 leaves the room
 None
 None
 0 0 0 0 0 0 0 0 0 0 0 0
 Test
-Test
+New
 None
 No Topic Set.
 Nobody
-Main
+Island
 None
-None
+
 Nobody
 None

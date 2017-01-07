@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------*/
-/* Prototypes for Moenuts v1.71 (C)2002 Michael Irving, All Rights Reserved  */
+/* Prototypes for Moenuts v1.73 (C)2002-2004 Michael Irving, moenuts.com     */
 /* Portions Of Moenuts (C) Neil Robertson, Rob Melhuish, Andy Collington and */
 /* Reddawg Respectively.   Thanks To All Who Have Contributed Ideas.         */
 /*------------------------- Prototypes for games.c --------------------------*/
@@ -23,15 +23,7 @@ EXTERN void start_poker(UR_OBJECT);
 EXTERN void join_pokwer(UR_OBJECT);
 EXTERN void leave_poker(UR_OBJECT);
 EXTERN void list_po_games(UR_OBJECT);
-EXTERN int add_player_hist(UR_OBJECT,int,int);
-EXTERN int get_player_hist_index(UR_OBJECT);
-EXTERN int player_hist_cmp(struct po_player_hist **,struct po_player_hist **);
 EXTERN void rank_po(UR_OBJECT);
-EXTERN void sort_hist(void);
-EXTERN void chips_po(UR_OBJECT);
-EXTERN void give_chips_po(UR_OBJECT);
-EXTERN int save_hist(void);
-EXTERN int load_hist(void);
 EXTERN void deal_poker(UR_OBJECT);
 EXTERN void next_po_player(struct po_game *);
 EXTERN void next_in_player(struct po_game *);
@@ -49,7 +41,6 @@ EXTERN void showdown_poker(struct po_game *);
 EXTERN void swap_cards(int[],int,int);
 EXTERN void magic_poker(UR_OBJECT);
 EXTERN void show_po_players(UR_OBJECT);
-EXTERN void check_hist(UR_OBJECT);
 EXTERN int myRand(int);
 EXTERN void tictac(UR_OBJECT,char *);
 EXTERN int legal_tic(char *,int,int);
@@ -63,8 +54,63 @@ EXTERN void guess_hangman(UR_OBJECT);
 EXTERN void reset_hangman(UR_OBJECT);
 EXTERN int rnd(int,int);
 EXTERN void slot(UR_OBJECT);
+EXTERN void connect_four(UR_OBJECT);
+EXTERN void print_board(UR_OBJECT);
+EXTERN int connect_win(UR_OBJECT);
 #undef EXTERN
 /*---------------------- end of games prototypes ----------------------------*/
+/* Object Stuff */
+
+#ifndef _OBJECT_SOURCE
+  #define EXTERN extern
+#else
+  #define EXTERN
+#endif
+EXTERN O_OBJECT create_object(void);
+EXTERN void reset_object(O_OBJECT);
+EXTERN void destruct_object(O_OBJECT);
+EXTERN void init_object(O_OBJECT);
+EXTERN void parse_objects(void);
+EXTERN void parse_room_objects(void);
+EXTERN void objects(UR_OBJECT, int);
+EXTERN O_OBJECT get_object(int);
+EXTERN void handle_room_object(UR_OBJECT);
+EXTERN void handle_user_object(UR_OBJECT);
+EXTERN int add_object_to_room(O_OBJECT,RM_OBJECT,int);
+EXTERN int remove_object_from_room(O_OBJECT,RM_OBJECT,int);
+EXTERN int add_object_to_user(O_OBJECT,UR_OBJECT,int);
+EXTERN int remove_object_from_user(O_OBJECT,UR_OBJECT,int);
+EXTERN int room_object_store(char *, int, RM_OBJECT);
+EXTERN int user_object_store(char *, int, UR_OBJECT);
+EXTERN void reload_object_descriptions(UR_OBJECT);
+EXTERN void reset_user_objects(UR_OBJECT);
+EXTERN void reset_room_objects(RM_OBJECT);
+EXTERN O_OBJECT find_object(UR_OBJECT,RM_OBJECT,char *,int);
+EXTERN O_OBJECT find_object_on_user(UR_OBJECT,char *,int);
+EXTERN O_OBJECT find_object_in_room(RM_OBJECT,char *,int);
+EXTERN void inspect_object(UR_OBJECT);
+EXTERN void get_object_from_room(UR_OBJECT);
+EXTERN void drop_object_in_room(UR_OBJECT);
+EXTERN void trash_object(UR_OBJECT);
+EXTERN void give_object(UR_OBJECT);
+EXTERN char *yesno(int);
+EXTERN char *yn(int);
+EXTERN char *petmf(int);
+EXTERN int user_has_object(UR_OBJECT,int);
+EXTERN void puke(UR_OBJECT);
+EXTERN void object_info(UR_OBJECT);
+#undef EXTERN
+
+/*------------------------- Experimental BOT Prototypes --------------------*/
+
+#ifndef _BOT_SOURCE
+  #define EXTERN extern
+#else
+  #define EXTERN
+#endif
+EXTERN void create_botuser(void);
+EXTERN void bot_trigger(UR_OBJECT, char *);
+#undef EXTERN
 
 /*-------------------------- MAIN SOURCE PROTOTYPES -------------------------*/
 
@@ -97,6 +143,7 @@ EXTERN void sig_handler(int);
 EXTERN void init_sockets(void);
 EXTERN void write_sock(int sock,char *);
 EXTERN void write_user(UR_OBJECT,char *);
+EXTERN void write_user_nr(UR_OBJECT,char *);
 EXTERN void write_level(int,int,char *,UR_OBJECT);
 EXTERN void write_room(RM_OBJECT,char *);
 EXTERN void write_room_except(RM_OBJECT,char *,UR_OBJECT);
@@ -136,6 +183,7 @@ EXTERN int has_unread_mail(UR_OBJECT);
 EXTERN void send_mail(UR_OBJECT,char *,char *);
 EXTERN int contains_swearing(char *);
 EXTERN int colour_com_count(char *);
+EXTERN int count_shown_colour_codes(char *);
 EXTERN char *colour_com_strip(char *);
 EXTERN char *long_date(int);
 EXTERN void clear_revbuff(RM_OBJECT);
@@ -146,7 +194,7 @@ EXTERN void showtime(UR_OBJECT);
 EXTERN void cls_all(UR_OBJECT);
 EXTERN void strtoupper(char *);
 EXTERN void strtolower(char *);
-EXTERN int isnumber(char *);
+EXTERN int isanumber(char *);
 EXTERN UR_OBJECT create_user(void);
 EXTERN void destruct_user(UR_OBJECT);
 EXTERN void destruct_room(RM_OBJECT);
@@ -189,12 +237,14 @@ EXTERN void setinfo(UR_OBJECT,char *);
 EXTERN void yell(UR_OBJECT,char *);
 EXTERN void show_ranks(UR_OBJECT);
 EXTERN void look(UR_OBJECT);
+EXTERN void look_pets(UR_OBJECT);
 EXTERN void shortlook(UR_OBJECT);
 EXTERN void go(UR_OBJECT, char *);
 EXTERN void move_user(UR_OBJECT,RM_OBJECT,int);
 EXTERN void move(UR_OBJECT);
 EXTERN void set_room_access(UR_OBJECT);
 EXTERN void uninvite(UR_OBJECT);
+EXTERN void accept_invite(UR_OBJECT);
 EXTERN void letmein(UR_OBJECT);
 EXTERN void invite(UR_OBJECT);
 EXTERN void set_topic(UR_OBJECT,char *);
@@ -425,7 +475,10 @@ EXTERN void trivia_win(UR_OBJECT);
 EXTERN void trivia_question(UR_OBJECT, char*);
 EXTERN void trivia_answer(UR_OBJECT, char*);
 EXTERN int has_key(RM_OBJECT, UR_OBJECT);
+EXTERN void keys(UR_OBJECT);
 EXTERN void list_keys(UR_OBJECT);
+EXTERN void add_user_key(UR_OBJECT, char *);
+EXTERN void remove_user_key(UR_OBJECT, char *);
 EXTERN int load_room_preferences(RM_OBJECT);
 EXTERN int save_room_preferences(RM_OBJECT, int);
 EXTERN void room_recap(UR_OBJECT, char *);
@@ -452,5 +505,59 @@ EXTERN void mutrevclr(UR_OBJECT);
 EXTERN void revmutter(UR_OBJECT);
 EXTERN void text_color(UR_OBJECT);
 EXTERN int copyfile(char *, char *);
-
+EXTERN void takecash(UR_OBJECT);
+EXTERN void convert2_drunk(char *);
+EXTERN void warn_user(UR_OBJECT,char *);
+EXTERN void set_guarddog(UR_OBJECT, char *);
+EXTERN void info_files(UR_OBJECT);
+EXTERN int is_user_bot(char *);
+EXTERN struct rank_entry_struct *create_rank_entry(UR_OBJECT, struct rank_head_struct *, int);
+EXTERN void update_rank_entry(struct rank_entry_struct *, UR_OBJECT, struct rank_head_struct *);
+EXTERN int destroy_rank_entry(struct rank_entry_struct *);
+EXTERN struct rank_return_struct find_rank_entry(UR_OBJECT, struct rank_head_struct *);
+EXTERN struct rank_entry_struct *delete_rank_entry(struct rank_entry_struct *, struct rank_head_struct *);
+EXTERN struct rank_entry_struct *insert_rank_entry(struct rank_entry_struct *, struct rank_head_struct *, int);
+EXTERN void initialize_rank_lists();
+EXTERN void destroy_rank_lists();
+EXTERN struct rank_entry_struct *merge_sort(struct rank_entry_struct *, int, int, int);
+// EXTERN struct rank_head_struct *merge_sort_head(struct rank_head_struct *);
+EXTERN void merge_sort_head(struct rank_head_struct *);
+EXTERN struct rank_head_struct *rhs_from_id(int);
+EXTERN void do_spod_wrappered(UR_OBJECT, char *, int);
+EXTERN char *rank_format(struct rank_entry_struct *, struct rank_head_struct *);
+EXTERN void do_spod(UR_OBJECT, char *);
+EXTERN void do_rich(UR_OBJECT, char *);
+EXTERN void do_thief(UR_OBJECT, char *);
+EXTERN void do_afflist(UR_OBJECT, char *);
+EXTERN void do_ticlist(UR_OBJECT, char *);
+EXTERN void do_fightlist(UR_OBJECT, char *);
+EXTERN void do_poker_spod(UR_OBJECT, char *);
+EXTERN void delete_spod(UR_OBJECT);
+EXTERN void update_spod(UR_OBJECT);
+EXTERN void total_spod(UR_OBJECT, char *);
+EXTERN void total_spod_wrappered(UR_OBJECT, char *, int);
+EXTERN void reinitialize_rank_lists (UR_OBJECT);
+EXTERN int add_user_node(char *, int);
+EXTERN void process_users(void);
+EXTERN int rem_user_node(char *,int);
+EXTERN void done_retrieve(UR_OBJECT);
+EXTERN UR_OBJECT retrieve_user(UR_OBJECT, char *);
+EXTERN UR_OBJECT retrieve_user_exact(UR_OBJECT, char *);
+EXTERN int instr(char *, char *);
+EXTERN void box_write(UR_OBJECT, char *);
+EXTERN void update_affection(UR_OBJECT);
+EXTERN int user_protected(char *);
+EXTERN void add_protected_user(UR_OBJECT);
+EXTERN void remove_protected_user(UR_OBJECT);
+EXTERN void save_friends(UR_OBJECT);
+EXTERN void load_friends(UR_OBJECT);
+EXTERN void remove_friend(UR_OBJECT, char *);
+EXTERN void add_friend(UR_OBJECT, char *);
+EXTERN void friends(UR_OBJECT);
+EXTERN int is_user_friend(UR_OBJECT, char *);
+EXTERN void friend_alert(UR_OBJECT);
+EXTERN void friend_tell(UR_OBJECT, char *);
+EXTERN void roompic_write(RM_OBJECT,char *);
+// EXTERN void add_user_date_node (char *name,char *date);
 #undef EXTERN
+static struct rank_return_struct find_rank_entry_by_num(int, struct rank_head_struct *);

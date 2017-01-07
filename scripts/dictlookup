@@ -4,7 +4,7 @@ use FileHandle;
 use Socket;
 # use Text::Wrap;
 use Text::Wrap qw(wrap $columns $huge);
-$Text::Wrap::columns = 80;
+$Text::Wrap::columns = 79;
 $huge='wrap';
 
 my $line;
@@ -94,7 +94,7 @@ while ($line = <SOCK>) {
 	$line =~ s/&Acirc;/A^/g;	# 194
 	$line =~ s/&Atilde;/A~/g;	# 195
 	$line =~ s/&Auml;/'A`/g;	# 196
-	$line =~ s/&Aring;/A*/g;		# 197
+	$line =~ s/&Aring;/A*/g;	# 197
 	$line =~ s/&AElig;/AE/g;	# 198
 	$line =~ s/&Ccedil;/C/g;	# 199
 	$line =~ s/&Egrave;/E/g;	# 200

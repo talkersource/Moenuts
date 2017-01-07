@@ -1,4 +1,4 @@
-/********************* Header file for Moenuts v1.61e **********************
+/********************* Header file for Moenuts v1.73 ************************
  
   Note: This header file differs from earlier versions as it has many new
   additions to the user structure etc.  Do not use it with earlier versions
@@ -21,6 +21,9 @@
 #define PICFILES 	"pictures"
 #define LOGFILES 	"logfiles"
 #define TEMPFILES	"tempfiles"  /* Process Tempfiles Stored Here! */
+#define INFOFILESDIR    "infofiles"
+#define BOTLIST         "botlist"
+#define USERPROTECT     "protect_list" /* Protected USer List */
 
 /* Screen Files */
 
@@ -53,7 +56,6 @@
 #define USERLIST     "userlist"
 #define POKERFILE    "pokerhelp"
 #define PICLISTFILE  "piclist"
-#define PO_HIST_FILE "pokerhistory"
 #define HANGDICT     "hangman_words"
 #define WELCOMEMAIL  "welcome-mail"
 #define SOCIALFILE   "socials.dat"
@@ -64,29 +66,41 @@
 #define ITEMFILE     "itemlist"  /* Future Use */
 #define PIDFILE      "moenuts.pid"  /* Used For The Kill Script Etc */
 
+/* Object Files */
+#define OBJFILES   "objectfiles"
+#define USEROBJECTS "objects"
+
+/* Object Stuff */
+
+#define MAX_USER_OBJECTS 30
+#define MAX_ROOM_OBJECTS 15
+
 /* Talker Global Variables */
 
-#define TALKERNAME    "New Talker"                            /* Talker's Full Name       */
-#define SHORTNAME     "New Talker"                            /* Talker's Short Name      */
-#define TALKERADDR    "myhost.com:9666"                       /* Talker's Address         */
-#define TALKERURL     "http://myhost.com/~me"                 /* Talker's Homepage URL    */
-#define DEFAULTDESC   "is new to the talker."                 /* Default New User Desc    */
-#define BANKBALANCE   500                                     /* Starting Bank Balance    */
-#define CREDIT_RATE   10                                      /* Credits Per Heartbeat    */
-#define MAX_IDLE_TIME 15                                      /* Mins To Idle & Get Creds */
-#define USE_FORTUNE   0                                       /* 0 = QOTD, 1 = Fortune    */
-#define FORTUNE_COMMAND    "/usr/games/fortune -o"            /* Fortune Path/Command     */
-#define SENDMAILCMD        "/var/qmail/bin/qmail-inject %s < %s"  /* Mail Send Command String */
-#define DICTIONARY_SCRIPT  "/home/mytalker/moenuts172/scripts/dictlookup"
-#define USE_SOCIALS_ON_SELF 1   /* Can a user use a social on themselves 1=yes 0=no */
+#define TALKERNAME    "A New Talker"             /* Talker's Full Name       */
+#define SHORTNAME     "A New Talker"             /* Talker's Short Name      */
+#define TALKERADDR    "myhost.com:9996"          /* Talker's Address         */
+#define TALKERURL     "http://myhost.com/~me"    /* Talker's Homepage URL    */
+#define DEFAULTDESC   "is new here."             /* Default New User Desc    */
+#define BANKBALANCE   500                        /* Starting Bank Balance    */
+#define CREDIT_RATE   3                          /* Credits Per Minute       */
+#define MAX_IDLE_TIME 15                         /* Mins To Idle & Get Creds */
+#define USE_FORTUNE   0                          /* 0 = QOTD, 1 = Fortune    */
+#define FORTUNE_COMMAND    "/usr/games/fortune"  /* Fortune Path/Command     */
+#define SENDMAILCMD        "/usr/sbin/sendmail %s < %s" /* Mail Send Command */
+#define DICTIONARY_SCRIPT  "scripts/dictlookup"  /* Dictionary Script        */
+#define USE_SOCIALS_ON_SELF 1  /* Can a user use a social on themselves 1=yes 0=no */
+
+/* Note: SENDMAILCMD -> You Might Also Try:  "sendmail %s < %s" if your */
+/*        server does not use Qmail like tdf.ca does.                    */
 
 /* Email Signature For Smail Forwarding */
 
-char *email_signature="(My New Talker)\n";
+char *email_signature="(A Moenuts Talker)\n";
 
 /* Email Signature For Gateway Email Messages */
 
-char *gate_email_signature="(myhost.com:9666)\n";
+char *gate_email_signature="(myhost.com:9996)\n";
 
 /*****************************************************************************/
 /* Note, the talker address variable is used in sending Internet Email as    */
@@ -105,16 +119,16 @@ char *gate_email_signature="(myhost.com:9666)\n";
 
 #define BACKUPFILES   1        /* 1 = Do Nightly Backups, 0 = Don't Bother   */
 #define BACKUPDIR     "backups"     /* Directory To Store Backups in         */
-#define BACKUPFILE    "talker "     /* Name of archive w/o extention         */
-#define BACKUPEXT     "tgz"         /* Backup File Extention                 */
-#define BACKUPCMD     "tar -zcvf %s/%s.%s ../moenuts/* > %s" /* Archive Cmd  */
+#define BACKUPFILE    "talkerbak"   /* Name of archive w/o extention         */
 
-/* - Note:  backup still uses .zip, BACKUPCMD not implimented *yet*          */
-
+/* Note: BACKUPCMD not implimented yet -- talker still uses .zip! - Moe      */
 /* 1st %s = BACKUPDIR, 2nd = BACKUPFILE, 3rd = Logfile Name (BACKUPFILE.log) */
 /* Some Versions Of Tar Don't Allow The 'z' option, if not, you can try      */
 /* Something like:  #define BACKUPCMD "tar -cvf %s.tar ../moenuts ||         */
-/*   gzip talkerfiles.tar"   (Or whatever your backupfile name is defined as.*/
+/* gzip talkerfiles.tar"   (Or whatever your backupfile name is defined as.  */
+
+#define BACKUPEXT     "tgz"         /* Backup File Extention                 */
+#define BACKUPCMD     "tar -zcvf %s/%s.%s ../moenuts/* > %s" /* Archive Cmd  */
 
 /*      System Allowances - Enable Feature = 1, Disable Feature = 0          */
 
@@ -142,7 +156,7 @@ char *gate_email_signature="(myhost.com:9666)\n";
 #define USER_DESC_LEN     60   /* Maximum Size User's Desc. Size (w/ Color)  */
 #define USER_DESC_TEXT    30   /* Maximum Desc. Size (Not Including Colors)  */
 #define USER_PREDESC_LEN  18   /* Maximum Predesc Size                       */
-#define BRAND_DESC_LEN    255  /* 255 Chars Should Be More Than Enough?      */
+#define BRAND_DESC_LEN    128  /* 255 Chars Should Be More Than Enough?      */
 #define AFK_MESG_LEN      60   /* Maximum Size User's AFK Message Can Be     */
 #define PHRASE_LEN        60   /* Maximum Size Of Users In/Out Phrase        */
 #define PASS_LEN          20   /* (Only First 8 Chars Are Encrypted Though)  */
@@ -164,11 +178,23 @@ char *gate_email_signature="(myhost.com:9666)\n";
 #define BIRTHDAY_LEN      10   /* Birth Date Length (MM/DD/YYYY)             */
 #define EMAIL_SUBJECT_LEN 80   /* 80 Character Subject Is More Than Enough   */
 #define URL_LEN           160  /* Who has a URL bigger than 160 Chars?       */
-#define EMAIL_ADDR_LEN    160  /* One Hell Of An Email Address :-)           */   
+#define EMAIL_ADDR_LEN    160  /* One Hell Of An Email Address :-)           */
 #define DNL               12   /* Date Number Length                         */
+#define GUARD_PHRASE_LEN  120  /* Guard Dog Phrase Length                    */
+#define MAX_FRIENDS       50   /* How Many Friends Maximum On Friend List    */
 /*****************************************************************************/
 
+#define SEPERATOR1 "~FT.---------------------------------------------------------------------------."
+#define SEPERATOR2 "~FT|---------------------------------------------------------------------------|"
+#define SEPERATOR3 "~FT`---------------------------------------------------------------------------'"
+
+/* Some Miscelaneous Costs */
+
 #define TRIVIA_POINT_AMOUNT	100
+#define ROOM_KEY_COST           500
+#define ROOM_KEY_SELL           500
+#define ROOM_OWNER_COST         1500
+#define ROOM_OWNER_SELL         1000
 
 /* Login Log Definitians */
 
@@ -190,9 +216,18 @@ char *gate_email_signature="(myhost.com:9666)\n";
 #define SCUM 		16
 #define JAILED          32
 #define FROZEN		64
+
+/* Gender Flags (Pre 1.73pr) */
 #define NEUTER          2
 #define FEMALE          4 
 #define MALE 		8
+
+/* New Gender Defines */
+#define GEN_NEUTER      0
+#define GEN_MALE        1
+#define GEN_FEMALE      2
+
+/* Invisible Flags */
 #define USERINVIS	4
 #define USERVIS 	8
 
@@ -216,6 +251,7 @@ char *gate_email_signature="(myhost.com:9666)\n";
 #define BOT_TYPE	 2
 #define ZERO             0
 #define TRUE             1
+#define FALSE            0
 
 /* Clone Flags */
 
@@ -226,6 +262,14 @@ char *gate_email_signature="(myhost.com:9666)\n";
 /* Neil: The elements vis, ignall, prompt, command_mode etc could all be
    bits in one flag variable as they're only ever 0 or 1, but I tried it
    and it made the code unreadable. Better to waste a few bytes */
+
+/* Spod */
+struct user_dir_struct {
+  char name[USER_NAME_LEN+1],date[80];
+  short int level;
+  struct user_dir_struct *next,*prev;
+  };
+struct user_dir_struct *first_dir_entry,*last_dir_entry;
 
 struct user_struct {
 	char name[USER_NAME_LEN+1];
@@ -241,9 +285,11 @@ struct user_struct {
 	int level,misc_op,remote_com,edit_line,charcnt,warned;
 	int accreq,last_login_len,ignall_store,clone_hear,afk;
 	int edit_op,colour,chkrev,ignore,revline,samesite_all_store;
+	int drunk,gender;
 	time_t last_input,last_login,total_login,read_mail;
+        int c4_board[8][7], c4_turn, c4_moves;
 	char *malloc_start,*malloc_end;
-	struct user_struct *prev,*next,*owner;
+	struct user_struct *prev,*next,*owner,*c4_opponent;
 	int wrap,mashed,invis,age,whostyle,last_room;
         char email[EMAIL_ADDR_LEN+1],homepage[URL_LEN+1];
 	int rules,news,default_wrap,shackled,shackle_level,hidden;
@@ -260,6 +306,7 @@ struct user_struct {
 	char array[10];
 	struct user_struct *opponent;
 	struct po_player *pop; /*** poker ***/
+	int poker_wins;
         char birthday[BIRTHDAY_LEN+1];
         char icq[ICQ_NUMBER_LEN+1];
         /* Branding */
@@ -297,18 +344,23 @@ struct user_struct {
         /* Other Stuff */
 	int hide_email,bet,win;
 	char owned_by[USER_NAME_LEN+1];
-	/* SMS Gateway */
-	int sms_msg_count;
-	char sms_number[SMS_MAX_PAGER_LEN+1];
-	char sms_verify_code[SMS_VERIFY_CODE_LEN+1];
 	/* Steal */
 	int attempttime;
 	int stealtime;
 	int textcolor;
+        /* Objects */
+        int object_count[MAX_USER_OBJECTS+1];
+        struct object_struct *objects[MAX_USER_OBJECTS+1];
+        struct object_struct *wrap_object;
+	/* Spod Stuff */
+	int logons,stolen;
+        /* Affection Stuff */
+	int affection, afftime;
+        char friends[MAX_FRIENDS][USER_NAME_LEN+1];
 };
 
 typedef struct user_struct* UR_OBJECT;
-UR_OBJECT user_first,user_last;
+UR_OBJECT user_first,user_last,botuser;
 
 struct room_struct {
 	char name[ROOM_NAME_LEN+1];
@@ -329,169 +381,26 @@ struct room_struct {
 	char link_label[MAX_LINKS][ROOM_LABEL_LEN+1]; /* temp store for parse */
 	struct room_struct *link[MAX_LINKS];
 	struct room_struct *next,*prev;
+        /* Objects */
+        int object_count[MAX_ROOM_OBJECTS+1];
+        struct object_struct *objects[MAX_ROOM_OBJECTS+1];
+        /* Guard Dog Stuff */
+	int guarddog;
+        char guarddog_name[USER_RECAP_LEN+1];
+        char guarddog_phrase[GUARD_PHRASE_LEN+1];
 	};
 
 typedef struct room_struct *RM_OBJECT;
+
 RM_OBJECT room_first,room_last;
 RM_OBJECT create_room();
+
+/* Object Stuff */
+char *nosuchobject="There is no such object.\n";
 
 /* Login Room Config For Special Cases */
 char *jail_room="Hell";
 char *newbie_room="None";
-
-char *command[]={
-"quit",         "look",       "mode",        "say",       "shout",
-"tell",         "emote",      "semote",      "pemote",    "echo",
-"go",           "ignore",     "prompt",      "main",      "listen",
-"ignall",       "public",     "private",     "knock",     "invite",
-"to",           "move",       "bcast",       "who",       "people",
-"help",         "shutdown",   "news",        "read",      "write",
-"wipe",         "search",     "review",      "email",     "stat",
-"version",      "rmail",      "smail",       "dmail",     "from",
-"entpro",       "examine",    "lastlogin",   "rooms",     "makeuser",
-"finduser",     "lastcbuff",  "nslookup",    "passwd",    "kill",
-"promote",      "demote",     "listbans",    "ban",       "unban",
-"vis",          "invis",      "site",        "wake",      "wiztell",
-"muzzle",       "unmuzzle",   "map",         "logging",   "minlogin",
-"system",       "charecho",   "clearline",   "fix",       "unfix",
-"viewlog",      "viewsys",    "cbuff",       "clone",     "destroy",
-"myclones",     "allclones",  "switch",      "csay",      "chear",
-"cemote",       "swban",      "desc",        "cls",       "color",
-"inphr",        "outphr",     "suicide",     "nuke",      "reboot",
-"recount",      "revtell",    "think",       "wemote",    "imnew", 
-"staff",        "management", "calender",    "entroom",   "topic",
-"accreq",       "boot",       "arrest",      "unarrest",  "gender",  
-"rules",        "srules",     "record",      "change",    "revwiz",
-"chrank",       "beep",       "afk",         "join",      "mash", 
-"freeze",       "unfreeze",   "sing",        "naked",     "ssing",
-"doh",          "qecho",      "hug",         "force",     "kiss",
-"french",       "netsex",     "netsextwo",   "yell",      "logoff",
-"clsall",       "welcome",    "time",        "ranks",     "greet",
-"samesite",     "wrap",       "uninvite",    "streak",    "lick",
-"bop",          "set",        "paddle",      "tictactoe", "finger",
-"pokerrules",   "startpoker", "joinpoker",   "leavepoker","gamespoker",
-"dealpoker",    "foldpoker",  "betpoker",    "checkpoker","raisepoker",
-"discpoker",    "seepoker",   "handpoker",   "rankpoker", "chipspoker",
-"scorepoker",   "talkers",    "plist",       "ptell",     "rpic",
-"vpic",         "wcbuff",     "scbuff",      "revshout",  "homeroom",
-"edit",         "rmkill",     "rmban",       "rmunban",   "giveroom",
-"muds",         "ewtoo",      "nuts",        "shackle",   "unshackle",
-"makeinvis",    "makevis",    "hide",        "show",      "execall",
-"craps",        "givecash",   "lend",        "atmosedit", "backup",
-"hangman",      "guess",      "givechips",   "tpromote",  "socials",
-"icqpage",      "toemote",    "addnews",     "figlet",    "sreboot",
-"ctopic",       "alias",      "wire",	     "blah",      "rebuild",
-"brand",        "unbrand",    "capture",     "slots",     "trivia",
-"twin",         "question",   "answer",      "keys",      "roomcap",
-"dictionary",   "steal",      "spinthebottle","coinflip", "rolldice",
-"fight",        "cfight",     "russian",     "paintball",   "reloadpaint",
-"eightball",    "mutter",     "revmutter",   "cmutter",    "textcolour",
-"makeuserpages","*"
-};
-
-/* Values of commands , used in switch in exec_com() */
-enum comvals {
-QUIT,        LOOK,         MODE,         SAY,         SHOUT,
-TELL,        EMOTE,        SEMOTE,       PEMOTE,      ECHO,
-GO,          IGNORE,       PROMPT,       LOBBY,       LISTEN,
-IGNALL,      PUBCOM,       PRIVCOM,      KNOCK,       INVITE,
-TO,          MOVE,         BCAST,        WHO,         PEOPLE,
-HELP,        SHUTDOWN,     NEWS,         READ,        WRITE,
-WIPE,        SEARCH,       REVIEW,       EMAIL,       STATUS,
-VER,         RMAIL,        SMAIL,        DMAIL,       FROM,
-ENTPRO,      EXAMINE,      LASTLOGIN,    RMST,        MAKEUSER,
-FINDUSER,    CLASTLOGIN,   NSLOOKUP,     PASSWD,      KILL,
-PROMOTE,     DEMOTE,       LISTBANS,     BAN,         UNBAN,
-VIS,         INVIS,        SITE,         WAKE,        WIZTELL,
-MUZZLE,      UNMUZZLE,     MAP,          LOGGING,     MINLOGIN,
-SYSTEM,      CHARECHO,     CLEARLINE,    FIX,         UNFIX,
-VIEWLOG,     VIEWSYS,      CBUFF,        CREATE,      DESTROY,
-MYCLONES,    ALLCLONES,    SWITCH,       CSAY,        CHEAR,
-CEMOTE,      SWBAN,        DESC,         CLS,         COLOR,
-INPHRASE,    OUTPHRASE,    SUICIDE,      NUKE,        REBOOT,
-RECOUNT,     REVTELL,      THINK,        WEMOTE,      IMNEW,
-STAFF,       MANAGEMENT,   CALENDER,     ENTROOM,     TOPIC,
-ACCREQ,      BOOT,         ARREST,       UNARREST,    GENDER,
-RULES,       SRULES,       RECORD,       CHANGE,      REVWIZ,
-SETRANK,     BEEP,         AFK,          JOIN,        GAG,
-FREEZE,      UNFREEZE,     SING,         NAKED,       SSING,
-DOH,         QECHO,        HUG,          FORCE,       KISS,
-FRENCH,      NETSEX,       NETSEXTWO,    YELL,        LOGOFF,
-CLSALL,      WELCOME,      TIME,         RANKS,       GREET,
-SAMESITE,    WRAP,         UNINVITE,     STREAK,      LICK,
-BOP,         SET,          PADDLE,       TICTAC,      FINGER,
-POKER,       STARTPO,      JOINPO,       LEAVEPO,     GAMESPO,
-DEALPO,      FOLDPO,       BETPO,        CHECKPO,     RAISEPO,
-DISCPO,      SEEPO,        HANDPO,       RANKPO,      CHIPSPO,
-SCOREPO,     TALKERS,      PICLIST,      PICTELL,     ROOMPIC,
-VIEWPIC,     WREVCLR,      SREVCLR,      REVSHOUT,    MYROOM,
-EDIT,        RMKILL,       RMBAN,        RMUNBAN,     GIVEROOM,
-MUDS,        EWTOO,        NUTS,         SHACKLE,     UNSHACKLE,
-MAKEINVIS,   MAKEVIS,      HIDE,         SHOW,        ALLEXEC,
-CRAPS,       GIVECASH,     LENDCASH,     ATMOS,       BACKUP,
-HANGMAN,     GUESS,        GIVEPOCHIPS,  TPROMOTE,    SOCIALS,
-ICQPAGE,     TOEMOTE,      ADDNEWS,      FIGLET,      SREBOOT,
-CTOPIC,      ALIAS,        WIRE,	 BLAH,	      REBUILD,
-BRAND,       UNBRAND,	   CAPTURE,	 SLOTS,       TRIVSTART,
-TRIVWIN,     TRIVQUEST,    TRIVANSWER,   LISTKEYS,    ROOMCAP,
-DICTIONARY,  STEAL,        SPIN,         FLIPCOIN,    ROLLDICE,
-FIGHT,       FIGHTRESET,   RROULETTE,    PAINTBALL,   PBRELOAD,
-EIGHTBALL,   MUTTER,       REVMUTTER,    CMUTTER,     TEXTCOLOR,
-MAKEUPAGES
-} com_num;
-
-/* These are the minimum levels at which the commands can be executed.
-   Alter to suit. */
-
-int com_level[]={
-NEW,        NEW,         NEW,         NEW,        USER,
-USER,       USER,        USER,        USER,       USER,
-USER,       USER,        NEW,         NEW,        USER,
-USER,       USER,        USER,        USER,       USER,
-USER,       WIZ,         WIZ,         NEW,        WIZ,
-NEW,        BEYOND,      USER,        NEW,        USER,
-WIZ,        USER,        USER,        USER,       NEW,
-NEW,        NEW,         USER,        USER,       USER,
-NEW,        USER,        USER,        USER,       ARCH,
-USER,       ARCH,        USER,        USER,       ARCH,
-WIZ,        ARCH,        WIZ,         WIZ,        WIZ,
-USER,       USER,        WIZ,         WIZ,        WIZ,
-WIZ,        WIZ,         USER,        ARCH,       ARCH,
-ARCH,       NEW,         WIZ,         ARCH,       ARCH,
-WIZ,        ARCH,        USER,        WIZ,        WIZ,
-WIZ,        WIZ,         WIZ,         WIZ,        WIZ,
-WIZ,        ARCH,        NEW,         NEW,        NEW,
-USER,       USER,        NEW,         ARCH,       BEYOND,
-ARCH,       USER,        USER,        WIZ,        NEW,
-NEW,        NEW,         NEW,         WIZ,        NEW,
-NEW,        WIZ,         WIZ,         WIZ,        ARCH,
-NEW,        WIZ,         WIZ,         ARCH,       WIZ,
-WIZ,        USER,        USER,        USER,       WIZ,
-ARCH,       ARCH,        USER,        USER,       USER,
-USER,       GAMES,       USER,        ARCH,       USER,
-USER,       USER,        USER,        WIZ,        WIZ,
-WIZ,        USER,        NEW,         NEW,        USER,
-WIZ,        NEW,         USER,        USER,       USER,
-USER,       NEW,         USER,        USER,       GOD,
-USER,       USER,        USER,        USER,       USER,
-USER,       USER,        USER,        USER,       USER,
-USER,       USER,        USER,        USER,       USER,
-USER,       USER,        USER,        USER,       WIZ,
-USER,       ARCH,        WIZ,         USER,       USER,
-USER,       USER,        GOD,         GOD,        GOD,
-USER,       USER,        USER,        WIZ,        WIZ,
-WIZ,        WIZ,         USER,        WIZ,        USER,
-USER,       GAMES,       USER,        USER,       GOD,
-USER,       USER,        ARCH,        ARCH,       MEMBER,
-USER,       USER,        ARCH,        USER,       GOD,
-USER,       WIZ,	 USER,        USER,       GOD,
-MEMBER,     WIZ,	 USER,        USER,       GAMES,
-GAMES,      GAMES,       USER,        USER,       WIZ,
-USER,       USER,        USER,        USER,       USER,
-USER,       USER,        USER,        USER,       USER,
-USER,       USER,        GOD,         GOD,        USER,
-GOD
-};
 
 /*
 Colcode values equal the following:
@@ -508,12 +417,7 @@ BLUE,MAGENTA,TURQUIOSE,WHITE
 
 char *colcode[NUM_COLS]={
 /* Standard stuff */
-/* "\033[0m","\033[1m","\033[4m","\033[5m","\033[7m", */
-
-/* Because It Bothers Most People, For Now Untill I get .set blink done,
-   I've defined ~LI = ~UL to stop people from using blinking! :) */
-
-"\033[0m","\033[1m","\033[4m","\033[7m","\033[7m",
+"\033[0m","\033[1m","\033[4m","\033[5m","\033[7m",
 /* Foreground colour */
 "\033[0;30m","\033[0;31m","\033[0;32m","\033[0;33m",
 "\033[0;34m","\033[0;35m","\033[0;36m","\033[0;37m",
@@ -522,7 +426,7 @@ char *colcode[NUM_COLS]={
 "\033[44m","\033[45m","\033[46m","\033[47m",
 /* Ascii Bell */
 "\07",
-/* Ansi Music */
+/* Ansi Music -- Doesn't work in most terminals - has dif. meaning in vt100 */
 "\033[M","\0x0E",
 /* Clear Screen */
 "\033[2J\033[H",  
@@ -600,12 +504,15 @@ char *who_list_style[MAX_WHOS+1]={
 "~CMShort Who ~FB-> ~FGNames Only",
 "~CMHouse Of Pleasure Who List Style",
 "~CYStairway To Heaven Who List Style",
-"~CGM~CGoenuts Byroom Who List Style",
+"~CGMo~CGenuts Byroom Who List Style",
 "~CMShackles Who List",
 "~CTMedival Times Who List",
 "~RSCamelot Who List",
 "~FGDark ~CRGarden ~FGWho List"
 };
+
+/* Note - The extra ~CG in the moenuts who name is to stop the recap when */
+/* Moe Is Online ;) */
 
 /* BDSM Caste Types */
 
@@ -623,6 +530,7 @@ char *bdsm_type_desc[MAX_BDSM_TYPES]={
 "Both Dominant/submissive (switches)",
 "Someone who isn't into the BDSM Lifestyle."
 };
+
 /* BDSM Lifestyle Types */
 
 #define MAX_BDSM_LIFE_TYPES 3
@@ -632,10 +540,23 @@ char *bdsm_life_types[MAX_BDSM_LIFE_TYPES]={
 };
 
 char *bdsm_life_type_desc[MAX_BDSM_LIFE_TYPES]={
-"A Straight Person",
-"A Gay/Lesbian Person",
-"A Bi-Sexual Person",
+"A Straight Person","A Gay/Lesbian Person","A Bi-Sexual Person"
 };
+
+/* gender arrays to make text easily for socials and strings  */
+
+/* Lowercase */
+char *himher[]={"it","him","her"};
+char *hisher[]={"its","his","her"};
+char *heshe[]={"it","he","she"};
+char *kingqueen[]={"jester","king","queen"};
+/* Uppercase */
+char *uchimher[]={"It","Him","Her"};
+char *uchisher[]={"Its","His","Her"};
+char *ucheshe[]={"It","He","She"};
+char *uckingqueen[]={"Jester","King","Queen"};
+
+/* More Variable Stuffs */
 
 char file[ARR_SIZE];
 char verification[SERV_NAME_LEN+1];
@@ -646,7 +567,7 @@ char lastlogbuff[LASTLOG_LINES][LASTLOG_LEN+2];
 char text[(ARR_SIZE*3)+2];
 char afktext[ARR_SIZE];
 char word[MAX_WORDS][WORD_LEN+1];
-char wrd[8][81];
+char wrd[15][81];
 char progname[40],confile[40];
 char tempstr[(ARR_SIZE*2)+1];
 char newstopic[TOPIC_LEN+2];
@@ -756,7 +677,6 @@ struct po_player {
   int putin;
   int touched;
   int rank;
-  struct po_player_hist *hist;
   struct user_struct *user;
   struct po_game *game;
   struct po_player *prev, *next;
@@ -782,15 +702,6 @@ struct po_game {
 };
 
 struct po_game *po_game_first, *po_game_last;
-struct po_player_hist {
-  char name[USER_NAME_LEN+1];
-  int total;
-  int given;
-};
-
-struct po_player_hist *po_hist[50];
-int max_po_hist;
-int max_hist;
 
 /******* Cards **********/
 
@@ -1544,5 +1455,33 @@ char textcolorname[MAX_TEXTCOLOR][20]=
 /* Bright Color Names */
 "~CKBlack","~CMPurple","~CRRed","~CYYellow","~CGGreen","~CBBlue","~CTCyan",
 "~CWWhite","~RFRandom Dull","~RCRandom Bright"
+};
+
+/****************************************
+ * Ranklist system for Amnuts
+ * written by Ardant (ardant@ardant.net)
+ ****************************************/
+
+struct rank_entry_struct {
+  char name[USER_NAME_LEN + 1];
+  unsigned long int data;
+  struct rank_entry_struct *next, *prev;
+  int flags;
+};
+
+struct rank_head_struct {
+  int offset;
+  char *name;
+  struct rank_entry_struct *first, *last;
+  int flags;
+  int count;
+  char *format;
+  char *long_name;
+  char *stats;
+};
+
+struct rank_return_struct {
+  struct rank_entry_struct *spod;
+  int rank;
 };
 
