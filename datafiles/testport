@@ -1,9 +1,8 @@
 # Main config file.
 
 INIT:
-mainport           2650
-wizport            2655
-linkport           2656
+mainport           5005
+wizport            5006
 max_users          100
 max_clones         0
 heartbeat          2
@@ -12,28 +11,25 @@ user_idle_time     600
 ban_swearing       NO
 password_echo      NO 
 ignore_sigterm     NO
-rem_user_maxlevel  GATEKEEPER
-rem_user_deflevel  GATEKEEPER
-verification       MOENUTS140
+kill_idle_users    NO
 system_logging     ON
 colour_def         ON
 prompt_def         OFF
 charecho_def       OFF
 minlogin_level     NONE
 mesg_life          7
-auto_connect	   NO
 mesg_check_time    03:00
 min_private        2
-ignore_mp_level    GATEKEEPER
-wizport_level      GATEKEEPER
+ignore_mp_level    WIZ
+wizport_level      WIZ
 gatecrash_level    GOD
-time_out_maxlevel  GATEKEEPER
+time_out_maxlevel  WIZ
 crash_action       IGNORE
 
 
 ROOMS:
 
-ent  Stairway 		ron,rtw,rth,rfo 		PUB  main
+ent  Entrance 		ron,rtw,rth,rfo 		PUB  main
 ron  Roon_One		ent				BOTH main
 rtw  Room_Two		ent				BOTH main 
 rth  Room_Three         ent				BOTH main

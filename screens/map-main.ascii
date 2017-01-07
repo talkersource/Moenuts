@@ -1,0 +1,17 @@
+
+               -=[ Moenuts Public Release Sample Map ]=-
+
+
+                             Room_Four
+                                 |
+                                 |
+               Room_Two  --- <Entrance> --- Room_One
+                                 |
+                                 |
+                             Room_Three
+
+                                 /\
+    [===========]                \/                [============]
+    [    Jail   ]-----------------|----------------[ Staff_Room ]
+    [====---====]                                  [============]
+ 
