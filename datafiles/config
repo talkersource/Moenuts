@@ -1,44 +1,37 @@
 # Main config file.
 
 INIT:
-mainport           2650
-wizport            2655
-linkport           2656
+mainport           5000
+wizport            5001 
 max_users          100
-max_clones         0
+max_clones         3
 heartbeat          2
-login_idle_time    45
+login_idle_time    60
 user_idle_time     600
-ban_swearing       NO
+ban_swearing       YES
 password_echo      NO 
 ignore_sigterm     NO
-rem_user_maxlevel  GATEKEEPER
-rem_user_deflevel  GATEKEEPER
-verification       MOENUTS140
+kill_idle_users    NO
 system_logging     ON
 colour_def         ON
 prompt_def         OFF
 charecho_def       OFF
 minlogin_level     NONE
 mesg_life          7
-auto_connect	   NO
 mesg_check_time    03:00
 min_private        2
-ignore_mp_level    GATEKEEPER
-wizport_level      GATEKEEPER
-gatecrash_level    GOD
-time_out_maxlevel  GATEKEEPER
-crash_action       IGNORE
+ignore_mp_level    Wizard
+wizport_level      Wizard
+gatecrash_level    God
+time_out_maxlevel  God
+crash_action       REBOOT
 
 
 ROOMS:
 
-ent  Stairway 		ron,rtw,rth,rfo 		PUB  main
-ron  Roon_One		ent				BOTH main
-rtw  Room_Two		ent				BOTH main 
-rth  Room_Three         ent				BOTH main
-rfo  Room_Four		ent				BOTH main
-st   Staff_Room		ent				PRIV main
-adm  Admin's_Room       st                              HIDE main Admin
-jail Jail		st				PRIV main
+main   Island               path,vil                       PUB  main
+path   Path                 main			   PUB  main 
+vil    Village		    main			   PUB  main
+staff  Staff_Room           jail      	                   PRIV staff
+jail   Hell                 staff                          PRIV staff
 

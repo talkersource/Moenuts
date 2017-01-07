@@ -1,0 +1,12 @@
+
+* beep *
+
+Usage: beep [<message>]
+
+This command will beep a user, and send them a message if one is supplied.
+
+Example:            .beep fred
+Will send to Fred:  -> <user> tells you:  *Beep*
+
+Example:            .beep fred WAKE UP!!
+Will send to Fred:  -> <user> tells you: WAKE UP!! *Beep*

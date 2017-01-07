@@ -1,0 +1,16 @@
+
+* dmail *
+
+Usage: dmail <#> <# # # # #> <# - #> <top #> <bottom #> <all>
+
+Deletes mail sent to you.  There are 6 different ways you can use .dmail:
+
+1... .dmail #          = Delete one piece of mail.
+2... .dmail # # # # #  = Delete *upto* 5 pieces of mail in specified order.
+3... .dmail top #      = Delete # messages from the top of your mailbox.
+4... .dmail bottom #   = Delete # messages from the bottom of your mailbox.
+5... .dmail # - #      = Delete messages # to # in your mailbox, I.e. 1 - 3
+6... .dmail all        = Delete *ALL* the mail in your mailbox.
+
+See: smail, rmail, from
+

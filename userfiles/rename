@@ -1,0 +1,41 @@
+#!/bin/sh
+
+clear
+if [ -e "$1.D" ]; then
+	echo "Renaming $1's User Details..."
+	mv $1.D $2.D
+else
+	echo "User: $1 Does Not Exist... ($1.D not found!)"
+	exit
+fi
+
+if [ -e "$1.E" ]; then
+	echo "Renaming Extended User Details..."
+	mv $1.E $2.E
+else
+	echo "Extended User Details Do Not Exist for $1..."
+fi
+
+if [ -e "$1.M" ]; then
+	echo "Renaming $1's Mail File..."
+	mv $1.M $2.M
+else
+	echo "User: $1 Has No Mail File..."
+fi
+
+if [ -e "$1.P" ]; then
+	echo "Renaming $1's Profile..."
+	mv $1.P $2.P
+else
+	echo "User: $1 has no profile to rename..."
+fi
+if [ -e "$1.A" ]; then
+	echo "Renaming User's Arrest/History File..."
+	mv $1.A $2.A
+else
+	echo "User: $1 has no history/arrest record..."
+fi
+echo Appending $2 to the end of the userlist...
+echo $2 >> userlist
+echo Done!
+echo ""

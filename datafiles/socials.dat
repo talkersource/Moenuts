@@ -13,7 +13,7 @@ personal
 soclick
 public
 %s licks themselves...  WHOA!  How do they do that!!??
-%s licks %s.  YUMMY!! :)
+%s licks %s all over their sweet sexy body, up and down, passionately.
 %s licks %s
 *
 wack
@@ -24,7 +24,7 @@ public
 *
 punch
 public
-%s punches themself in the arm... OUCH!!
+%s punches himself in the arm... OUCH!!
 %s punches %s playfully in the arm...
 %s punches %s
 *
@@ -38,13 +38,25 @@ flirt
 public
 %s flirts with everyone in the room.
 %s bats their eyelashes at %s in an attempt to flirt with them.
-%s flirts %s
+%s flirts with %s
 *
 fart
 public
 %s breaks wind and tries to hide the fact...
 %s farts in %s's general direction...
 %s farts %s
+*
+poop
+public
+%s has to run the restroom to sit on the throne...
+%s invites %s to sit with them in the restroom...
+%s sits on the throne and %s
+*
+pee
+public
+%s pees themselves from laughing soo hard..
+%s invites %s to watch them pee...
+%s pees on %s
 *
 beg
 public
@@ -56,7 +68,7 @@ freak
 public
 %s freaks out and runs rampid through the streets!
 %s freaks on %s and starts flailing their arms trying to make a point!
-%s freaks: %s
+%s freaks %s
 *
 fly
 public
@@ -92,7 +104,7 @@ supercala
 public
 %s is stupid enough to try and spell 'Supercalifragilisticexpialidocious'
 %s looks at %s and sings o/' Supercalifragilisticexpialidocious o/'
-%s mumbles 'Supercalifragilisticexpialidocious': %s
+%s mumbles 'Supercalifragilisticexpialidocious' %s
 *
 cocacola
 public
@@ -112,89 +124,17 @@ public
 %s throws %s a beer.
 %s grabs a beer and %s
 *
-soclook
-public
-%s looks around the room.
-%s looks over at %s.
-%s looks: %s
-*
-glance
-public
-%s glances at everyone in the room.
-%s takes a quick glance at %s.
-%s glances %s
-*
-wink
-public
-%s winks.
-%s winks seductively at %s.
-%s winks: %s
-*
-strut
-public
-%s struts their stuff.
-%s struts their stuff trying to impress %s.
-%s struts %s
-*
-wiggle
-public
-%s wiggles their nose.
-%s wiggles and giggles and winks at %s
-%s wiggles %s
-*
-love
-public
-%s is full of...um...Love!
-%s states their un-dying love for %s.
-%s loves %s
-*
-twist
-public
-%s does the twist!
-%s twists %s like a pretzel!
-%s twists %s
-*
-socpoke
-public
-%s pokes themselves.
-%s pokes %s lightly in the side.
-%s pokes %s
-*
-giggle
-public
-%s giggles like a little school girl!
-%s giggles like a little school girl at %s!
-%s giggles: %s
-*
-toast
-public
-%s throws toast around the room.
-%s throws toast at %s.
-%s proposes a toast: %s
-*
-foodfight
-public
-%s starts throwing their food around in an attempt to start a food fight!
-%s launches a pea with their spoon at %s. !! FOOD FIGHT !!
-%s declairs a !! FOOD FIGHT !! and %s
-*
-spam
-public
-%s ~RS~OL~FRsings ~FGo/~ ~FTSpam, Spam Spam Spam... ~FGo/~
-%s steals all of %s's spam when they're not looking!
-%s eats their spam and %s
-*
 telephone
 public
 %s runs to answer the telephone...
 %s runs to answer the telephone hoping to hear %s's voice!
-%s runs to answer the telephone %s
+%s runs to answer the telephane %s
 *
 ponder
 public
 %s sinks deeply into thought...
 %s ponders what %s's doing...
-%s ponders . o O ( %s ) O o .
+%s ponders %s
 *
 nod
 public
@@ -208,87 +148,27 @@ public
 %s offers %s a glass of lemonade.
 %s opens a lemonade stand and %s
 *
-www
+tickle
 public
-%s trips on the World Wide Web and falls flat on their face!
-%s looks at %s in confusion...www.com.WHAT?!?!
-%s shows the following URL: %s
+%s looks around for someone to tickle.
+%s tickles %s till they pee...
+%s tickles %s
 *
-soctalk
+eyepoke
 public
-%s starts to talk in tounges...
-%s talks in tounges to %s.
-%s mumbles something about %s
+%s pokes themself in the eye...What a moron!
+%s pokes %s in the eye like the stooge they are!
+%s eye-pokes %s
 *
-upromote
+yawn
 public
-%s ~RS~OL~FGhas been promoted to level: ~FWGOD!
-%s ~RS~OL~FGhas promoted %s ~RS~OL~FGto level: ~FWADMIN!
-%s ~RS~OL~FGhas been promoted to level: ~FW%s
+%s ~OL~FYstretches out and yawns.
+%s ~OL~FYlooks at %s and yawns.
+%s yawns: %s
 *
-udemote
+wedgie
 public
-%s ~RS~OL~FRhas been demoted to level: ~FWFREAK!
-%s ~RS~OL~FRhas demoted %s ~RS~OL~FRto level: ~FWFREAK!
-%s ~RS~OL~FRhas been demoted to level: ~FW%s
-*
-thwap
-public
-%s thwaps themselves silly.
-%s thwaps %s.
-%s thwaps %s
-*
-buzz
-public
-%s buzzes all their body hair off!
-%s buzzes all of %s's body hair off!
-%s buzzes %s
-*
-noogie
-public
-%s gives themself a noogie...WHATTA FREAK!:)
-%s grabs %s and gives them a noogie!
-%s noogies %s
-*
-drool
-public
-%s drools all over the floor!  EWW!!
-%s drools at the sight of %s!
-%s drools %s
-*
-socshackle
-personal
-%s stands with shackles in their hand.
-%s grins at %s and shackles them to the bed.
-%s shackles %s
-*
-grope
-personal
-%s gropes themself
-%s gropes %s fondly
-%s gropes %s
-*
-prod
-public
-%s stands around with the cattle prod in their hand grinning evilly.
-%s walks up to %s and prods them!
-%s prods %s
-*
-funny
-public
-%s woohoos!  I made a funny!
-%s looks at %s... I made a funny! ;)
-%s makes a funny and %s.
-*
-balloon
-public
-%s ~RS~OL~FYdrops a water baloon on themselves...DOH!
-%s ~RS~OL~FYthrows a water baloon at ~FB%s~RS~OL~FY!   ~OL~FYS~FMP~FGL~FTO~FRO~FBS~FMH~FY!
-%s ~RS~OL~FYthrows a water baloon at %s
-*
-lapdance
-public
-%s ~OL~FYlooks for someone to give a lapdance.
-%s ~OL~FGhops up on %s's lap and gives them a lap dance.
-%s hops up on your lap and starts to dance and %s
+%s picks out their wedgie.
+%s sneaks up behind %s and gives them a wedgie!
+%s picks their wedgie as they %s.
 *

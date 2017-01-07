@@ -1,0 +1,15 @@
+
+~FB.------------------------------------------------------------------.             
+~FB|                  ~OL~FYMoenuts Help For Command~FB: ~FGREVIEW~RS~FB                |
+~FB|------------------------------------------------------------------'
+~FB| ~OL~FYUsage   ~FB:  ~FTreview [grep <search pattern>]                        ~RS~FB|
+~FB| ~OL~FYExample ~FB:  ~FTreview grep myword                                    ~RS~FB|
+~FB| ~OL        ~FB:  ~FTSearch current room's buffer for lines which contain  ~RS~FB|
+~FB| ~OL        ~FB:  ~FTthe word 'myword'                                     ~RS~FB|
+~FB| ~OL~FYNotes   ~FB:  ~FTGrep searches are not case sensitive and will match   ~RS~FB|
+~FB| ~OL        ~FB:  ~FTpartial words such as "qui" would match quit, squirt  ~RS~FB|
+~FB| ~OL        ~FB:  ~FTquiet etc.                                            ~RS~FB|
+~FB`------------------------------------------------------------------'
+    ~OL~FY** ~FMAlso See~FB:~FR cbuff, revtell, revshout
+
+

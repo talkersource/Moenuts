@@ -1,0 +1,9 @@
+
+* uninvite *
+
+Purpose  :  To uninvite a user previously invited into the current room
+Usage    :  uninvute <user>/all
+Comments :  If the all option is specified, everyone's invite into the
+            current room will be removed.
+
+

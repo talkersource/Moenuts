@@ -1,0 +1,15 @@
+
+* set *
+
+This command is used to set various items. The current options are:
+
+~RSUsage:
+  ~OL~FY.set ~FTage~FW <1-149>
+  ~OL~FY.set ~FTemail~FW <user info>
+  ~OL~FY.set ~FThomepage~FW <user info>
+ 
+~RS~FGExample:~FW
+~RS~OL~FW.set age 99                           :Sets your age to 99
+~RS~OL~FW.set email me@my.mail                 :Sets your email to me@my.mail
+~RS~OL~FW.set webpage http://www.me.com/       :Sets your webpage to http://www.me.com/
+

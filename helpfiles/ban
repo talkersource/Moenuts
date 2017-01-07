@@ -1,0 +1,20 @@
+
+* ban *
+
+Usage: ban site/user/new <partial site/user name>
+
+
+Site = Ban Entire Site fron logging in
+New  = Ban only new users from a site from loggin in
+user = Ban just a specific user name
+
+
+This command will ban either a site or a user, the names of which are written
+to the files in the SITEBAN and USERBAN macros.
+
+** Note:  When banning sites, you're best to use a partial site, i.e.
+          to ban dialin23.ppp.myisp.com  you should use:
+	  .ban site myisp.com  or for ips use:  .ban new xxx.xxx.xxx.
+	  Omit the last number of the number address.
+
+See: unban, listbans

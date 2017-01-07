@@ -1,0 +1,11 @@
+
+* move *
+
+Usage: move <user> [<room>]
+
+Moves a user directly to the chosen room. If no room is given, the room
+the person who is doing the moveing is assumed.  The user is not moved if
+he is already in the chosen room.
+
+See: go
+

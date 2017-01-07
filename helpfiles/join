@@ -1,0 +1,10 @@
+
+~RS~FW~OL* join *~RS
+
+Usage: .join <user>
+
+To join a user in another room.
+(ie: .join opy)  : Would take you to Opy's current location.
+
+See: go   home   invite   letmein
+

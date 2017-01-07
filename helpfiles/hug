@@ -1,0 +1,10 @@
+
+* hug * (social)
+
+Purpose:  To hug a user
+Usage  :  hug <user>/all
+Comment:  If no options is specified, you will hug yourself ;-)
+          With the all option, if the user is not in the same room
+          as yourself, you will hug the user via shout emote.
+
+
