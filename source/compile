@@ -5,19 +5,19 @@
 #
 # What is the name of your talker?
 #
-talkername="A New Talker"
+talkername="New Talker"
 #
 # What do you want your talker executable named? (i.e. moenuts)
 #
-exec="moenuts"
+exec="moenuts172"
 #
 # What is your talker's home directory/folder?
 #
-execdir="$HOME/moenuts161e"
+execdir="$HOME/moenuts172"
 #
 # What is the name of the main source code file?
 #
-source="moenuts161e.c"
+source="moenuts172.c"
 #
 # What is the name of your C compiler? (i.e. cc/gcc/egcs)
 # Using gcc is recomended!
@@ -26,7 +26,19 @@ cc="gcc"
 #
 # What options does your C compiler need when compiling?
 #
-ccops="-lcrypt -O2 -Wall"
+# Some Valid Options Are:  
+#
+# -DINCLUDE_CRYPT_H (RedHat) (forces the include of <crypt.h>
+# -DDEBUG           Puts Moenuts in Debug Mode (For use w/ gdb, also include -g)
+# -DRESOLVE_IP      If you're having problems with your DNS server freezing the talker
+# -lcrypt           Include the Crypt Library 
+# -Wall             Show ALL warning when compiling.
+# -g                Including Debug info for GNU Debugger (use with -DDEBUG)
+# -O or -O2 of -O3  Set Optimization Level (Compiler Optimization)
+# 
+#ccops="-lcrypt -Wall -DDEBUG -g"
+ccops="-lcrypt -Wall"
+
 #
 # Note: Note.  Some systems, i.e. Redhat and some BSD systems require you
 #       include the Crypt Library on the compiler command line using the
@@ -79,7 +91,7 @@ echo "#define COMPILE_TIME     \"`date +%T`\"" >> hostinfo.h
 echo "#define COMPILE_FULL     \"$fullinfo\"" >> hostinfo.h
 echo "" >> hostinfo.h
 clear
-echo "-=] Moenuts Compilation Script v1.3, (C)1988-2001 Moesoft (moe@moenuts.com) [=-"
+echo "-=] Moenuts Compilation Script v1.41, (C)1998-2004 Moe (moe@moenuts.com) [=-"
 echo ""
 echo "Current Host Information..."
 echo ""
@@ -92,13 +104,14 @@ echo ""
 # Remove Old Executable If It Exists Incase Compile Fails, We'll Have A Recent
 # Backup Of The Executable.  Just Named <exec>.old
 #
+backupsufix=`date +%m%d%y%H%M%S` >> hostinfo.h
 echo "Making Backup Copy Of Old Executable..."
-echo "Savnig It As: $execdir/$exec.old..."
+echo "Savnig It As: $execdir/backups/$exec.$backupsufix..."
 rm -f $execdir/$exec.old
-mv $execdir/$exec $execdir/$exec.old >& /dev/null
+mv $execdir/$exec $execdir/backups/$exec.$backupsufix >& /dev/null
 echo "Building $talkername:"
 echo "    Compiling $source -=> $execdir/$exec..."
 echo ""
 echo $cc $execdir/source/$source $ccops -o $execdir/$exec $2 $3 $4 $5
-$cc $execdir/source/$source $ccops -o $execdir/$exec $2 $3 $4 $5
+time $cc $execdir/source/$source $ccops -o $execdir/$exec $2 $3 $4 $5
 echo ""

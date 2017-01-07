@@ -1,0 +1,9 @@
+
+Command: PTELL
+Purpose: Send a Picture To A User
+Usage  : .ptell <user> <picture>
+Example: .ptell raine hug
+Related: .vpic, .plist and .rpic
+Notes  : Use .plist to see a list of pictures, and .vpic <picture>
+         to preview the picture.
+

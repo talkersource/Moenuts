@@ -1,174 +1,294 @@
 sochug
 personal
-%s wraps their arms around themselves in an attempt at a one person hug.
-%s wraps their arms around %s hugging them tightly.
-%s starts to hug %s
+$UN wraps $UG2 arms around $UG1self in an attempt at a one person hug.
+$UN wraps $UG2 arms around $VN hugging $VG1 tightly.
+$UN starts to hug $TXT
 *
 sockiss
 personal
-%s closes their eyes and puckers up hoping for a kiss.
-%s leans into %s and shares a passionate kiss with them.
-%s starts to kiss %s
+$UN closes $UG2 eyes and puckers up hoping for a kiss.
+$UN leans into $VN and shares a passionate kiss with $VG1.
+$UN starts to kiss $TXT
 *
 soclick
 public
-%s licks themselves...  WHOA!  How do they do that!!??
-%s licks %s all over their sweet sexy body, up and down, passionately.
-%s licks %s
+$UN licks $UG1self...  WHOA!  How does $UG3 do that!!??
+$UN licks $VN.  YUMMY!! :)
+$UN licks $TXT
 *
 wack
 public
-%s wacks their head on the desk... That'll leave a mark!
-%s wacks %s's head on the desk... That'll leave a mark!
-%s wacks %s
+$UN wacks $UG2 head on the desk... That'll leave a mark!
+$UN wacks $VN's head on the desk... That'll leave a mark!
+$UN wacks $TXT
 *
 punch
 public
-%s punches himself in the arm... OUCH!!
-%s punches %s playfully in the arm...
-%s punches %s
+$UN punches $UG1self in the arm... OUCH!!
+$UN punches $VN playfully in the arm...
+$UN punches $TXT
 *
 stab
 public
-%s stabs their ... Umm nevermind...
-%s takes a wild stab at %s
-%s stabs %s
+$UN stabs $UG2 ... Umm nevermind...
+$UN takes a wild stab at $VN.
+$UN stabs $TXT
 *
 flirt
 public
-%s flirts with everyone in the room.
-%s bats their eyelashes at %s in an attempt to flirt with them.
-%s flirts with %s
+$UN flirts with everyone in the room.
+$UN bats $UG2 eyelashes at $VN in an attempt to flirt with $VG1.
+$UN flirts with $TXT
 *
 fart
 public
-%s breaks wind and tries to hide the fact...
-%s farts in %s's general direction...
-%s farts %s
+$UN breaks wind and tries to hide the fact...
+$UN farts in $VN's general direction and $VG3 almost passes out from the smell...
+$UN farts $TXT
 *
 poop
 public
-%s has to run the restroom to sit on the throne...
-%s invites %s to sit with them in the restroom...
-%s sits on the throne and %s
+$UN has to run the restroom to sit on the throne...
+$UN invites $VN to sit with $UG1 in the restroom, what a sicko $UG3 is!
+$UN sits on the throne and $TXT
 *
 pee
 public
-%s pees themselves from laughing soo hard..
-%s invites %s to watch them pee...
-%s pees on %s
+$UN pees $UG1self from laughing soo hard..
+$UN invites $VN to watch $UG1 pee...
+$UN pees on $TXT
 *
 beg
 public
-%s gets down on their knees and begs for forgiveness...
-%s begs %s for some... Umm... Err... Forgiveness...
-%s grovels: %s
+$UN gets down on $UG2 knees and begs for forgiveness...
+$UN gets down on $UG2 knees and begs $VN for some... Umm... Err... Forgiveness!  Yeah, That's it!
+$UN grovels: $TXT
 *
 freak
 public
-%s freaks out and runs rampid through the streets!
-%s freaks on %s and starts flailing their arms trying to make a point!
-%s freaks %s
+$UN freaks out and runs rampid through the streets!
+$UN freaks on $VN and starts flailing $UG2 arms at $VG1 trying to make $UG2 point!
+$UN freaks $TXT
 *
 fly
 public
-%s thinks they can fly and jumps out the window....!!! SMACK !!!~BP
-%s tries to fly over to %s and falls flat on their face... !!! THUD !!!~BP
-%s flies %s
+$UN thinks $UG3 can fly and jumps out the window....!!! SMACK !!! ~BP(What a Dork $UG3 is!)
+$UN tries to fly over to $VN and falls flat on $UG2 face... !!! THUD !!!~BP (What A Dork $UG3 is!)
+$UN flies $TXT
 *
 sex
 public
-%s looks around for someone to sex...
-%s struts their stuff infront of %s hoping to sex them...
-%s sexes %s
+$UN looks around for someone to sex...
+$UN struts $UG2 stuff infront of $VN hoping to sex $VG1... $TXT
+$UN sexes $TXT
 *
 jump
 public
-%s jumps for joy!
-%s grabs %s's hand and starts jumping around the room...
-%s jumps %s
+$UN jumps for joy!
+$UN grabs $VN's hand and starts jumping around the room...
+$UN jumps $TXT
 *
 saranade
 public
-%s saranades everyone in the room with song...
-%s gets down on one knee and starts to saranade %s...
-%s saranades %s
+$UN saranades everyone in the room with song...
+$UN gets down on one knee and starts to saranade $VN, (8) $TXT (8)...
+$UN saranades: (8) $TXT (8)
 *
 sleep
 public
-%s falls asleep.
-%s crawls in bed with %s and falls asleep.
-%s sleeps %s
+$UN falls asleep.
+$UN crawls in bed with $VN and falls asleep with $VG1.  $TXT
+$UN sleeps with $TXT
 *
 supercala
 public
-%s is stupid enough to try and spell 'Supercalifragilisticexpialidocious'
-%s looks at %s and sings o/' Supercalifragilisticexpialidocious o/'
-%s mumbles 'Supercalifragilisticexpialidocious' %s
+$UN is stupid enough to try and spell 'supercalafragilisticexpealadocous'
+$UN looks at $VN and sings (8) supercalafragilisticexpealadochous (8)
+$UN mumbles 'Supercalafragilisticexpealadocous' $TXT
 *
 cocacola
 public
-%s grabs a Coca-Cola out of the fridge and slams it down... !!! AHHH !!!
-%s grabs a Coca-Cola out of the fridge and hands it to %s...
-%s grabs a Coca-Cola and %s
+$UN grabs a Coca-Cola out of the fridge and slams it down... !!! AHHH !!!
+$UN grabs a Coca-Cola out of the fridge and hands it to $VN...  $TXT
+$UN grabs a Coca-Cola and $TXT
 *
 pepsi
 public
-%s grabs a Pepsi out of the fridge and slams it down... !!! AHHH !!!
-%s grabs a Pepsi out of the fridge and hands it to %s...
-%s grabs a Pepsi and %s
+$UN grabs a Pepsi out of the fridge and slams it down... !!! AHHH !!!
+$UN grabs a Pepsi out of the fridge and hands it to $VN...  $TXT
+$UN grabs a Pepsi and $TXT
 *
 beer
 public
-%s buys a round of beer for everyone in the room.
-%s throws %s a beer.
-%s grabs a beer and %s
+$UN buys a round of beer for everyone in the room.
+$UN throws $VN a beer.  $TXT
+$UN grabs a beer and $TXT
+*
+soclook
+public
+$UN looks around the room.
+$UN looks over at $VN.  Wonder what $UG3 wants?
+$UN looks $TXT
+*
+glance
+public
+$UN glances at everyone in the room.
+$UN takes a quick glance at $VN.  $TXT
+$UN glances $TXT
+*
+wink
+public
+$UN winks.
+$UN winks seductively at $VN.  $TXT
+$UN winks $TXT
+*
+strut
+public
+$UN struts $UG2 stuff for everybody.
+$UN struts $UG2 stuff trying to impress $VN.  Wonder if $VG3's impressed?
+$UN struts $TXT
+*
+wiggle
+public
+$UN wiggles $UG2 nose.
+$UN wiggles and giggles and winks at $VN.  $TXT
+$UN wiggles $TXT
+*
+code
+public
+$UN thinks $UG3 can code.
+$UN begs $VN to help $UG1 code.
+$UN tries to code $TXT
+*
+love
+public
+$UN is full of...um...Love!
+$UN states $UG2 un-dying love for $VN.
+$UN loves $TXT
+*
+twist
+public
+$UN does the twist!
+$UN twists $VN like a pretzel!
+$UN twists $TXT
+*
+socpoke
+public
+$UN pokes $UG1self.
+$UN pokes $VN lightly in the side.
+$UN pokes $TXT
+*
+giggle
+public
+$UN giggles like a little school girl!
+$UN giggles like a little school girl at $VN!
+$UN giggles $TXT
+*
+toast
+public
+$UN throws toast around the room.
+$UN throws toast at $VN.
+$UN proposes a toast $TXT
+*
+foodfight
+public
+$UN starts throwing $UG2 food around in an attempt to start a food fight!
+$UN launches a pea with $UG2 spoon at $VN hitting $VG1 right between the eyes! !! FOOD FIGHT !!
+$UN declairs a !! FOOD FIGHT !! and $TXT
+*
+spam
+public
+$UN ~RS~OL~FRsings ~FGo/~ ~FTSpam, Spam Spam Spam... ~FGo/~
+$UN steals all of $VN's spam when $UG3's not looking!
+$UN eats $UG2 spam and $TXT
 *
 telephone
 public
-%s runs to answer the telephone...
-%s runs to answer the telephone hoping to hear %s's voice!
-%s runs to answer the telephane %s
+$UN runs to answer the telephone...
+$UN runs to answer the telephone hoping to hear $VN's voice!
+$UN runs to answer the telephane $TXT
 *
 ponder
 public
-%s sinks deeply into thought...
-%s ponders what %s's doing...
-%s ponders %s
+$UN sinks deeply into thought...
+$UN ponders what $VN is doing...
+$UN ponders $TXT
 *
 nod
 public
-%s nods.
-%s nods at %s in agreeance.
-%s nods %s
+$UN nods solemnly.
+$UN nods solemnly at $VN.
+$UN nods solemnly $TXT
 *
 lemonade
 public
-%s opens a lemonade stand.
-%s offers %s a glass of lemonade.
-%s opens a lemonade stand and %s
+$UN opens a lemonade stand.
+$UN offers $VN a glass of lemonade.
+$UN opens a lemonade stand and $TXT
 *
-tickle
+www
 public
-%s looks around for someone to tickle.
-%s tickles %s till they pee...
-%s tickles %s
+$UN trips on the World Wide Web and falls flat on $UG2 face!
+$UN looks at $VN in confusion...www.com... What?!?!
+$UN shows the following URL: $TXT
 *
-eyepoke
+soctalk
 public
-%s pokes themself in the eye...What a moron!
-%s pokes %s in the eye like the stooge they are!
-%s eye-pokes %s
+$UN starts to talk in tongues...
+$UN talks in tongues to $VN.
+$UN mumbles something about $TXT
 *
-yawn
+upromote
 public
-%s ~OL~FYstretches out and yawns.
-%s ~OL~FYlooks at %s and yawns.
-%s yawns: %s
+$UN ~RS~OL~FGhas been promoted to level: ~FWGOD!
+$UN ~RS~OL~FGhas promoted $VN ~RS~OL~FGto level: ~FWADMIN!
+$UN ~RS~OL~FGhas been promoted to level: ~FW$TXT
 *
-wedgie
+udemote
 public
-%s picks out their wedgie.
-%s sneaks up behind %s and gives them a wedgie!
-%s picks their wedgie as they %s.
+$UN ~RS~OL~FRhas been demoted to level: ~FWFREAK!
+$UN ~RS~OL~FRhas demoted $VN ~RS~OL~FRto level: ~FWFREAK!
+$UN ~RS~OL~FRhas been demoted to level: ~FW$TXT
+*
+thwap
+public
+$UN thwaps $UG1self silly.
+$UN thwaps $VN.
+$UN thwaps $TXT
+*
+buzz
+public
+$UN buzzes all $UG2 body hair off!
+$UN buzzes all of $VN's body hair off!
+$UN buzzes $TXT
+*
+noogie
+public
+$UN gives $UG1self a noogie...WHATTA FREAK!:)
+$UN grabs $VN and gives $VG1 a noogie!
+$UN noogies $TXT
+*
+drool
+public
+$UN drools all over the floor!  EWW!!
+$UN drools at the sight of $VN!
+$UN drools $TXT
+*
+socshackle
+personal
+$UN stands with shackles in $UG2 hand.
+$UN grins at $VN and shackles $VG1 to the bed.
+$UN shackles $TXT
+*
+?
+personal
+$UN ~RSReminds Everyone: for help, you can use .help, or .help <command>!
+$UN tells $VN: for help, you can use .help, or .help <command>!
+$UN ~RS$TXT
+*
+sexy
+public
+$UN thinks $UG3's the sexiest thing $UG3's ever seen.
+$UN think's $VN's is just the sexiest thing $UG3's ever seen!.
+$UN thinks $TXT is sexy.
 *

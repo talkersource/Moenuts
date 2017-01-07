@@ -1,14 +1,14 @@
 # Main config file.
 
 INIT:
-mainport           5000
-wizport            5001 
+mainport           9666
+wizport            9667 
 max_users          100
 max_clones         3
 heartbeat          2
 login_idle_time    60
-user_idle_time     600
-ban_swearing       YES
+user_idle_time     1600
+ban_swearing       NO
 password_echo      NO 
 ignore_sigterm     NO
 kill_idle_users    NO
@@ -17,21 +17,18 @@ colour_def         ON
 prompt_def         OFF
 charecho_def       OFF
 minlogin_level     NONE
-mesg_life          7
-mesg_check_time    03:00
+mesg_life          15
+mesg_check_time    01:00
 min_private        2
 ignore_mp_level    Wizard
 wizport_level      Wizard
 gatecrash_level    God
 time_out_maxlevel  God
-crash_action       REBOOT
+crash_action       SREBOOT
 
 
 ROOMS:
 
-main   Island               path,vil                       PUB  main
-path   Path                 main			   PUB  main 
-vil    Village		    main			   PUB  main
-staff  Staff_Room           jail      	                   PRIV staff
-jail   Hell                 staff                          PRIV staff
-
+main   Main           staff 		                   PUB  main
+staff  Staff          main                      	   PRIV staff
+jail   Hell          staff                                 PRIV staff

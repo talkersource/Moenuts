@@ -1,0 +1,176 @@
+#!/usr/bin/perl
+use strict;
+use FileHandle;
+use Socket;
+# use Text::Wrap;
+use Text::Wrap qw(wrap $columns $huge);
+$Text::Wrap::columns = 80;
+$huge='wrap';
+
+my $line;
+my $pre = 0;
+my $state = 0;
+my $word = shift;
+if (!$word) {
+    print STDERR "usage: $0 <word>\n";
+    exit 1;
+}
+my $host = "www.m-w.com";
+my $port = 80;
+my $ipaddr = inet_aton($host) || die "can't find host $host\n";
+my $sockaddr = sockaddr_in($port, $ipaddr);
+my $proto = getprotobyname('tcp');
+
+socket(SOCK, PF_INET, SOCK_STREAM, $proto) || die "socket: $!\n";
+SOCK->autoflush(1);
+connect(SOCK, $sockaddr) || die "$host $port: $!\n";
+$word =~ s/ /+/g; # cheap url encoding
+print SOCK "GET /cgi-bin/dictionary?va=$word\n";
+print "\n~CW-~CY-~CG-~FG----------------------------------------------------------------------~CG-~CY-~CW-\n";
+while ($line = <SOCK>) {
+    # print STDERR $line;
+    if ($line =~ /Main Entry:|<option selected|Suggestions for/) { $state = 1; }
+    if ($state == 1) {
+	chop $line;
+	if ($line =~ /<\/form>|<\/table>/i) {
+	    $state = 2;
+	    $line = $`;
+	}
+	if ($line =~ /<pre>/i) { $pre = 1; print "~CG\n"; }
+	if ($line =~ /<\/pre>/i) { $pre = 0; print "~FG\n"; }
+	$line =~ s/<br>/\n/gi;
+	$line =~ s/<option[^>]*>/\n/gi;
+	$line =~ s/<i>/\~FT~UL/gi;
+	$line =~ s/( *)<\/i>/\~RS$1/gi;
+	$line =~ s/<b>|<strong>/~CY/gi;
+	$line =~ s/<\/b>|<\/strong>/~RS/gi;
+	$line =~ s/<[^>]*>//g;
+
+	# markup
+	$line =~ s/&quot;/"/g;		# 34
+	$line =~ s/&amp;/&/g;		# 38
+	$line =~ s/&lt;/</g;		# 60
+	$line =~ s/&gt;/>/g;		# 62
+	$line =~ s/&circ;/^/g;		# 710
+	$line =~ s/&tilde;/~/g;		# 732
+	$line =~ s/&lsquo;/`/g;		# 8216
+	$line =~ s/&rsquo;/'/g;		# 8217
+
+	# ISO 8859-1
+	$line =~ s/&nbsp;/ /g;		# 160
+	$line =~ s/&iexcl;/!/g;		# 161
+	$line =~ s/&cent;/c/g;		# 162
+	$line =~ s/&pound;/E/g;		# 163
+	$line =~ s/&curren;/*/g;	# 164
+	$line =~ s/&yen;/=Y=/g;		# 165
+	$line =~ s/&brvbar;/|/g;	# 166
+	$line =~ s/&sect;/S/g;		# 167
+	$line =~ s/&uml;/"/g;		# 168
+	$line =~ s/&copy;/(C)/g;	# 169
+	$line =~ s/&ordf;/ /g;		# 170
+	$line =~ s/&laquo;/<</g;	# 171
+	$line =~ s/&not;/-/g;		# 172
+	$line =~ s/&shy;/-/g;		# 173
+	$line =~ s/&reg;/(r)/g;		# 174
+	$line =~ s/&macr;/~/g;		# 175
+	$line =~ s/&deg;/(deg.)/g;	# 176
+	$line =~ s/&plusmn;/+\/-/g;	# 177
+	$line =~ s/&sup2;/^2/g;		# 178
+	$line =~ s/&sup3;/^3/g;		# 179
+	$line =~ s/&acute;/'/g;		# 180
+	$line =~ s/&micro;/u/g;		# 181
+	$line =~ s/&para;/{p}/g;	# 182
+	$line =~ s/&middot;/./g;	# 183
+	$line =~ s/&cedil;/,/g;		# 184
+	$line =~ s/&sup1;/^1/g;		# 185
+	$line =~ s/&ordm;/*/g;		# 186
+	$line =~ s/&raquo;/>>/g;	# 187
+	$line =~ s/&frac14;/1\/4/g;	# 188
+	$line =~ s/&frac12;/1\/2/g;	# 189
+	$line =~ s/&frac34;/3\/4/g;	# 190
+	$line =~ s/&iquest;/?/g;	# 191
+	$line =~ s/&Agrave;/`A/g;	# 192
+	$line =~ s/&Aacute;/A'/g;	# 193
+	$line =~ s/&Acirc;/A^/g;	# 194
+	$line =~ s/&Atilde;/A~/g;	# 195
+	$line =~ s/&Auml;/'A`/g;	# 196
+	$line =~ s/&Aring;/A*/g;		# 197
+	$line =~ s/&AElig;/AE/g;	# 198
+	$line =~ s/&Ccedil;/C/g;	# 199
+	$line =~ s/&Egrave;/E/g;	# 200
+	$line =~ s/&Eacute;/E/g;	# 201
+	$line =~ s/&Ecirc;/E/g;		# 202
+	$line =~ s/&Euml;/E/g;		# 203
+	$line =~ s/&Igrave;/f/g;	# 204
+	$line =~ s/&Iacute;/f/g;	# 205
+	$line =~ s/&Icirc;/I/g;		# 206
+	$line =~ s/&Iuml;/I/g;		# 207
+	$line =~ s/&ETH;/D/g;		# 208
+	$line =~ s/&Ntilde;/N/g;	# 209
+	$line =~ s/&Ograve;/O/g;	# 210
+	$line =~ s/&Oacute;/O/g;	# 211
+	$line =~ s/&Ocirc;/O/g;		# 212
+	$line =~ s/&Otilde;/O/g;	# 213
+	$line =~ s/&Ouml;/O/g;		# 214
+	$line =~ s/&times;/x/g;		# 215
+	$line =~ s/&Oslash;/0/g;	# 216
+	$line =~ s/&Ugrave;/U/g;	# 217
+	$line =~ s/&Uacute;/U/g;	# 218
+	$line =~ s/&Ucirc;/U/g;		# 219
+	$line =~ s/&Uuml;/U/g;		# 220
+	$line =~ s/&Yacute;/Y/g;	# 221
+	$line =~ s/&THORN;/P/g;		# 222
+	$line =~ s/&szlig;/B/g;		# 223
+	$line =~ s/&agrave;/a/g;	# 224
+	$line =~ s/&aacute;/a/g;	# 225
+	$line =~ s/&acirc;/a/g;		# 226
+	$line =~ s/&atilte;/a/g;	# 227
+	$line =~ s/&auml;/a/g;		# 228
+	$line =~ s/&aring;/a/g;		# 229
+	$line =~ s/&aelig;/as/g;	# 230
+	$line =~ s/&ccedil;/c/g;	# 231
+	$line =~ s/&egrave;/e/g;	# 232
+	$line =~ s/&eacute;/e/g;	# 233
+	$line =~ s/&ecirc;/e/g;		# 234
+	$line =~ s/&euml;/e/g;		# 235
+	$line =~ s/&igrave;/i/g;	# 236
+	$line =~ s/&iacute;/i/g;	# 237
+	$line =~ s/&icirc;/i/g;		# 238
+	$line =~ s/&iuml;/i/g;		# 239
+	$line =~ s/&eth;/i/g;		# 240
+	$line =~ s/&ntilde;/n/g;	# 241
+	$line =~ s/&ograve;/o/g;	# 242
+	$line =~ s/&oacute;/o/g;	# 243
+	$line =~ s/&ocirc;/o/g;		# 244
+	$line =~ s/&otilde;/o/g;	# 245
+	$line =~ s/&ouml;/o/g;		# 246
+	$line =~ s/&divide;/\//g;	# 247
+	$line =~ s/&oslash;/0/g;	# 248
+	$line =~ s/&ugrave;/u/g;	# 249
+	$line =~ s/&uacute;/u/g;	# 250
+	$line =~ s/&ucirc;/u/g;		# 251
+	$line =~ s/&uuml;/u/g;		# 252
+	$line =~ s/&yacute;/y/g;	# 253
+	$line =~ s/&thorn;/P/g;		# 254
+	$line =~ s/&yuml;/y/g;		# 255
+
+	# mathematical symbols
+	$line =~ s/&mu;/u/g;		# 956
+	$line =~ s/&bullet;/*/g;	# 8226
+	$line =~ s/&prime;/`/g;		# 8242
+	$line =~ s/&Prime;/"/g;		# 8243
+	$line =~ s/&oline;/~/g;		# 8254
+	$line =~ s/&minus;/-/g;		# 8722
+	$line =~ s/&lowast;/~/g;	# 8727
+	$line =~ s/&sim;/~/g;		# 8764
+
+	if ($line =~ /\S/) {
+	        print wrap("  ","  ",$line);
+		print "~RS\n";
+        	if ($pre) { print "~CG\n"; }
+		}
+    }
+}
+print "~CW-~CY-~CG-~FG-----------------------------------------------------------------------~CG-~CY-~CW-\n\n";
+close(SOCK);
+exit;

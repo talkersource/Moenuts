@@ -1,0 +1,44 @@
+~CW_~CY_~CG_~FG________________________________________________________________________~CG_~CY_~CW_
+
+~FG .        :       ...    .,:::::::::.    :::. ...    ::::::::::::::: .::::::. 
+~CG ;;,.    ;;;   .;;;;;;;. ;;;;''''`;;;;,  `;;; ;;     ;;;;;;;;;;;'''';;;`    ` 
+~CY [[[[, ,[[[[, ,[[     \[[,[[cccc   [[[[[. '[[[['     [[[     [[     '[==/[[[[,
+~CW $$$$$$$$"$$$ $$$,     $$$$$""""   $$$ "Y$c$$$$      $$$     $$       '''    $
+~CY 888 Y88" 888o"888,_ _,88P888oo,__ 888    Y8888    .d888     88,     88b    dP
+~CG MMM  M'  "MMM  "YMMMMMP" """"YUMMMMMM     YM "YmmMMMM""     MMM      "YMmMY"  
+
+
+~FG       .,-::::: :::::::..  .,:::::::::::::-.  ::::::::::::::: .::::::. 
+~CG     ,;;;'````' ;;;;``;;;; ;;;;'''' ;;,   `';,;;;;;;;;;;;'''';;;`    ` 
+~CY     [[[         [[[,/[[['  [[cccc  `[[     [[[[[     [[     '[==/[[[[,
+~CW     $$$         $$$$$$c    $$""""   $$,    $$$$$     $$       '''    $
+~CY     `88bo,__,o, 888b "88bo,888oo,__ 888_,o8P'888     88,     88b    dP
+~CG       "YUMMMMMP"MMMM   "W" """"YUMMMMMMMP"`  MMM     MMM      "YMmMY" 
+
+~CW_~CY_~CG_~FG________________________________________________________________________~CG_~CY_~CW_
+
+                         ~ Credits For Moenuts v1.72 ~
+
+~CMSpecial Thanks To The Following People:
+~FM---------------------------------------
+~FRRed~FBdawg ~FM- ~FTFor Supplying Me With The Original Moded Code Which Moenuts is based.
+~FYSquirt  ~FM- ~FTFor adding the Seemless reboot and making the code ANSI compliant.
+~CGA~FGrn~CGY    ~FM- ~FTFor Supplying The Original Seemless Reboot Code and Help.
+~FGAndy    ~FM- ~FTFor adding Samesite and Greet for me when I was just starting out.
+~FGNerf    ~FM- ~FTFor adding Poker and Tic Tac Toe for me. (Later bugfixed updated)
+~RSCurmitt ~FM- ~FTFor helping out with various issues here and there.
+~CKadd~RCI~CKct  ~FM- ~FTFor Random Colour Codes and String Subtitution Code and other help.
+~CT>~FBAnd~CT->  ~FM- ~FTEveryone Else Who Gave Ideas, Critisism and Comments. 
+
+Moenuts originally started out as a small project based on Reddawg's modified NUTS 3.3.3
+for use on my own talker.  I decided to release Moenuts to the public because there was
+some interest shown in it.  It is still around today, but development and release is slow
+because of time restraints and such.  I'd like to thank everyone for their hard work and
+contrubutions to this project, the Dark Fantastic Network for hosting our webpage and
+talkers.  Moenuts has been tested under GCC 3.3.2 and the 2.6.3 Linux Kernel under the
+slackware Distrobution.  It has been known to work under many other Unix style OS's,
+and may even be compiled under Windows with little or no modifications using Cygwin or
+other compiler packages.  For more information, feel free to email support@moenuts.com
+
+~CW_~CY_~CG_~FG________________________________________________________________________~CG_~CY_~CW_
+
